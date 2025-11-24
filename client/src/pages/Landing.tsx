@@ -320,6 +320,16 @@ export default function Landing() {
                     LinkedIn <ExternalLink className="h-3 w-3" />
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="https://www.github.com/fulanii/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                  >
+                    GitHub <ExternalLink className="h-3 w-3" />
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
