@@ -126,7 +126,7 @@ export default function Landing() {
                 CodifyLive
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mb-4 max-w-2xl mx-auto">
-                A free and open-source tool for chatting, collaborating, and
+                A free and open-source platform for chatting, collaborating, and
                 coding together in real time.
               </p>
               <p className="text-base md:text-lg text-muted-foreground/80 mb-8 max-w-2xl mx-auto">
@@ -167,7 +167,7 @@ export default function Landing() {
                 What CodifyLive Does
               </h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Simple tools for real-time collaboration and communication
+                Simple platform for real-time collaboration and communication
               </p>
             </div>
 
@@ -282,7 +282,7 @@ export default function Landing() {
                 <span className="text-lg font-semibold">CodifyLive</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-md">
-                A free and open-source tool for chatting, collaborating, and
+                A free and open-source platform for chatting, collaborating, and
                 coding together in real time.
               </p>
             </div>
