@@ -1,0 +1,35 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Dependencies
+/node_modules
+/dist
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local history
+.history
+
+# VS Code
+.vscode
+.vscode-insiders
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.idea
+.cache
+/build
