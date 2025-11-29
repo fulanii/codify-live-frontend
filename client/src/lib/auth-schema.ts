@@ -47,10 +47,47 @@ export interface Friend {
   avatarUrl?: string;
 }
 
-export interface FriendRequest {
+export interface FriendSearchResult {
   id: string;
-  from: User;
-  createdAt: string;
+  username: string;
+}
+
+export interface OutgoingFriendRequest {
+  receiverId: string;
+  receiverUsername: string;
+  createdAt?: string;
+}
+
+export interface IncomingFriendRequest {
+  senderId: string;
+  senderUsername: string;
+  createdAt?: string;
+}
+
+export interface FullProfileResponse {
+  auth: {
+    id: string;
+    email: string;
+  };
+  profile: {
+    username: string;
+    created_at: string;
+  };
+  friends: Friend[];
+  incoming_requests: Array<{
+    id: string;
+    sender_id: string;
+    receiver_id: string;
+    username: string;
+    created_at?: string;
+  }>;
+  outgoing_requests: Array<{
+    id: string;
+    sender_id: string;
+    receiver_id: string;
+    username: string;
+    created_at?: string;
+  }>;
 }
 
 export interface ChatMessage {

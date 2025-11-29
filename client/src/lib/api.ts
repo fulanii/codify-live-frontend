@@ -3,6 +3,11 @@ import type {
   LoginFormData,
   AuthResponse,
   User,
+  Friend,
+  FriendSearchResult,
+  OutgoingFriendRequest,
+  IncomingFriendRequest,
+  FullProfileResponse,
 } from "@/lib/auth-schema";
 
 // Backend API base URL
@@ -89,7 +94,12 @@ export const api = {
       throw new ApiError("Failed to get user info", response.status);
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      id: data.auth?.id ?? "",
+      email: data.auth?.email ?? "",
+      username: data.profile?.username ?? "",
+    };
   },
 
   async logout(accessToken?: string): Promise<void> {
@@ -125,5 +135,98 @@ export const api = {
     });
 
     return response;
+  },
+
+  async getFullProfile(accessToken: string): Promise<FullProfileResponse> {
+    const response = await this.fetchWithAuth("/auth/me", accessToken, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(
+        error.message || "Failed to fetch profile",
+        response.status,
+        error
+      );
+    }
+
+    return response.json();
+  },
+
+  async searchUsers(
+    prefix: string,
+    accessToken: string
+  ): Promise<FriendSearchResult[]> {
+    const response = await this.fetchWithAuth(
+      `/friends/search/${encodeURIComponent(prefix)}`,
+      accessToken,
+      {
+        method: "GET",
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(
+        error.message || "Failed to search users",
+        response.status,
+        error
+      );
+    }
+
+    const data = await response.json();
+    return data.usernames as FriendSearchResult[];
+  },
+
+  async sendFriendRequest(
+    receiverUsername: string,
+    accessToken: string
+  ): Promise<OutgoingFriendRequest> {
+    const response = await this.fetchWithAuth("/friends/request", accessToken, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ receiver_username: receiverUsername }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(
+        error.message || "Failed to send friend request",
+        response.status,
+        error
+      );
+    }
+
+    const data = await response.json();
+    return {
+      receiverId: data.request.receiver_id,
+      receiverUsername: receiverUsername,
+      createdAt: data.request.created_at,
+    };
+  },
+
+  async acceptFriendRequest(
+    senderId: string,
+    accessToken: string
+  ): Promise<void> {
+    const response = await this.fetchWithAuth("/friends/request/accept", accessToken, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sender_id: senderId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(
+        error.message || "Failed to accept friend request",
+        response.status,
+        error
+      );
+    }
   },
 };

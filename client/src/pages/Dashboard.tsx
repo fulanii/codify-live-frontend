@@ -29,7 +29,7 @@ import { AccountPage } from "@/components/dashboard/AccountPage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 function AppSidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [location] = useLocation();
 
   const menuItems = [
@@ -47,11 +47,18 @@ function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-            <Users className="h-5 w-5 text-primary-foreground" />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+              <Users className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-lg font-semibold">CodifyLive</span>
           </div>
-          <span className="text-lg font-semibold">CodifyLive</span>
+          {user?.username && (
+            <p className="text-sm text-muted-foreground pl-10">
+              Hello {user.username}
+            </p>
+          )}
         </div>
       </SidebarHeader>
 
