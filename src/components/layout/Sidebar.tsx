@@ -96,11 +96,11 @@ const SidebarContent: React.FC<
               key={item.id}
               onClick={isHome ? handleHomeClick : () => onTabChange(item.id)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                "flex w-full items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                isCollapsed && "justify-center"
+                isCollapsed ? "justify-center" : "gap-4"
               )}
               title={isCollapsed ? item.label : undefined}
             >
@@ -110,7 +110,7 @@ const SidebarContent: React.FC<
                   isActive && "text-primary"
                 )}
               />
-              {!isCollapsed && item.label}
+              {!isCollapsed && <span className="ml-1">{item.label}</span>}
             </button>
           );
         })}

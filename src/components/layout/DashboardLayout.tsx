@@ -62,8 +62,10 @@ const DashboardLayout: React.FC = () => {
     <NavigationProvider activeTab={activeTab} onTabChange={handleTabChange}>
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
-        <main className="flex-1 overflow-hidden">
-          <ErrorBoundary>{renderContent()}</ErrorBoundary>
+        <main className="flex-1 overflow-hidden md:pt-0">
+          <div className="h-full pt-20 md:pt-0">
+            <ErrorBoundary>{renderContent()}</ErrorBoundary>
+          </div>
         </main>
       </div>
     </NavigationProvider>
