@@ -19,7 +19,7 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -43,7 +43,7 @@ const LoginPage: React.FC = () => {
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       toast({
         title: 'Login failed',
