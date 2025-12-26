@@ -17,9 +17,9 @@ import type {
   SendMessageResponse,
   ConversationParticipantInfo,
   ApiError,
-} from '@/types/api';
+} from "@/types/api";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // Store for the access token
 let accessToken: string | null = null;
@@ -27,44 +27,44 @@ let accessToken: string | null = null;
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
   if (token) {
-    localStorage.setItem('access_token', token);
+    localStorage.setItem("access_token", token);
   } else {
-    localStorage.removeItem('access_token');
+    localStorage.removeItem("access_token");
   }
 };
 
 export const getAccessToken = (): string | null => {
   if (!accessToken) {
-    accessToken = localStorage.getItem('access_token');
+    accessToken = localStorage.getItem("access_token");
   }
   return accessToken;
 };
 
 export const clearAccessToken = () => {
   accessToken = null;
-  localStorage.removeItem('access_token');
+  localStorage.removeItem("access_token");
 };
 
 // Request deduplication
 const pendingRequests = new Map<string, Promise<unknown>>();
 
 const getRequestKey = (url: string, options?: RequestInit) => {
-  return `${options?.method || 'GET'}:${url}`;
+  return `${options?.method || "GET"}:${url}`;
 };
 
 // Error parsing helper
 const parseError = async (response: Response): Promise<string> => {
   try {
     const data: ApiError = await response.json();
-    if (typeof data.detail === 'string') {
+    if (typeof data.detail === "string") {
       return data.detail;
     }
     if (Array.isArray(data.detail) && data.detail.length > 0) {
-      return data.detail.map(d => d.msg).join(', ');
+      return data.detail.map((d) => d.msg).join(", ");
     }
-    return 'An error occurred';
+    return "An error occurred";
   } catch {
-    return response.statusText || 'An error occurred';
+    return response.statusText || "An error occurred";
   }
 };
 
@@ -78,48 +78,55 @@ export const apiFetch = async <T>(
   const requestKey = getRequestKey(url, options);
 
   // Check for pending duplicate request (only for GET)
-  if (!skipDedup && options.method !== 'POST' && pendingRequests.has(requestKey)) {
+  if (
+    !skipDedup &&
+    options.method !== "POST" &&
+    pendingRequests.has(requestKey)
+  ) {
     return pendingRequests.get(requestKey) as Promise<T>;
   }
 
   const token = getAccessToken();
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...options.headers,
   };
 
   if (token) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
   const fetchPromise = (async () => {
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include', // For httpOnly cookies
+      credentials: "include", // For httpOnly cookies
     });
 
     if (response.status === 401) {
       // For login/register endpoints, 401 means invalid credentials, not expired session
       // Don't try to refresh token or redirect - just throw the error
-      const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/register');
-      
+      const isAuthEndpoint =
+        endpoint.includes("/auth/login") || endpoint.includes("/auth/register");
+
       if (isAuthEndpoint) {
         // For auth endpoints, just parse and throw the error
         const error = await parseError(response);
         throw new Error(error);
       }
-      
+
       // For other endpoints, try to refresh token
       const refreshed = await refreshAccessToken();
       if (refreshed) {
         // Retry the request with new token
         const newToken = getAccessToken();
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+        (headers as Record<string, string>)[
+          "Authorization"
+        ] = `Bearer ${newToken}`;
         const retryResponse = await fetch(url, {
           ...options,
           headers,
-          credentials: 'include',
+          credentials: "include",
         });
 
         if (!retryResponse.ok) {
@@ -131,10 +138,10 @@ export const apiFetch = async <T>(
       } else {
         clearAccessToken();
         // Only redirect if we're not already on the login page
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
         }
-        throw new Error('Session expired');
+        throw new Error("Session expired");
       }
     }
 
@@ -150,7 +157,7 @@ export const apiFetch = async <T>(
   })();
 
   // Store pending request for deduplication
-  if (!skipDedup && options.method !== 'POST') {
+  if (!skipDedup && options.method !== "POST") {
     pendingRequests.set(requestKey, fetchPromise);
     fetchPromise.finally(() => {
       pendingRequests.delete(requestKey);
@@ -172,8 +179,8 @@ const refreshAccessToken = async (): Promise<boolean> => {
   refreshPromise = (async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/access`, {
-        method: 'GET',
-        credentials: 'include',
+        method: "GET",
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -196,22 +203,28 @@ const refreshAccessToken = async (): Promise<boolean> => {
 // Auth API
 export const authApi = {
   register: (data: UserRegistration) =>
-    apiFetch<UserRegistrationResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, true),
+    apiFetch<UserRegistrationResponse>(
+      "/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      true
+    ),
 
   login: (data: UserLogin) =>
-    apiFetch<UserLoginResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, true),
+    apiFetch<UserLoginResponse>(
+      "/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      true
+    ),
 
-  logout: () =>
-    apiFetch('/auth/logout', { method: 'POST' }, true),
+  logout: () => apiFetch("/auth/logout", { method: "POST" }, true),
 
-  getMe: () =>
-    apiFetch<MeResponse>('/auth/me'),
+  getMe: () => apiFetch<MeResponse>("/auth/me"),
 
   refreshToken: refreshAccessToken,
 };
@@ -219,56 +232,89 @@ export const authApi = {
 // Friends API
 export const friendsApi = {
   search: (username: string, signal?: AbortSignal) =>
-    apiFetch<FriendsSearchResponse>(`/friends/search/${encodeURIComponent(username)}`, { signal }),
+    apiFetch<FriendsSearchResponse>(
+      `/friends/search/${encodeURIComponent(username)}`,
+      { signal }
+    ),
 
   sendRequest: (receiverUsername: string) =>
-    apiFetch<FriendRequestResponse>('/friends/request', {
-      method: 'POST',
-      body: JSON.stringify({ receiver_username: receiverUsername }),
-    }, true),
+    apiFetch<FriendRequestResponse>(
+      "/friends/request",
+      {
+        method: "POST",
+        body: JSON.stringify({ receiver_username: receiverUsername }),
+      },
+      true
+    ),
 
   acceptRequest: (senderId: string) =>
-    apiFetch<AcceptFriendRequestResponse>('/friends/request/accept', {
-      method: 'POST',
-      body: JSON.stringify({ sender_id: senderId }),
-    }, true),
+    apiFetch<AcceptFriendRequestResponse>(
+      "/friends/request/accept",
+      {
+        method: "POST",
+        body: JSON.stringify({ sender_id: senderId }),
+      },
+      true
+    ),
 
   declineRequest: (senderId: string) =>
-    apiFetch<DeclineFriendRequestResponse>(`/friends/request/decline/${senderId}`, {
-      method: 'DELETE',
-    }, true),
+    apiFetch<DeclineFriendRequestResponse>(
+      `/friends/request/decline/${senderId}`,
+      {
+        method: "DELETE",
+      },
+      true
+    ),
 
   cancelRequest: (receiverId: string) =>
-    apiFetch<CancelFriendRequestResponse>(`/friends/request/cancel/${receiverId}`, {
-      method: 'DELETE',
-    }, true),
+    apiFetch<CancelFriendRequestResponse>(
+      `/friends/request/cancel/${receiverId}`,
+      {
+        method: "DELETE",
+      },
+      true
+    ),
 
   removeFriend: (userId: string) =>
-    apiFetch<RemoveFriendResponse>(`/friends/remove/${userId}`, {
-      method: 'DELETE',
-    }, true),
+    apiFetch<RemoveFriendResponse>(
+      `/friends/remove/${userId}`,
+      {
+        method: "DELETE",
+      },
+      true
+    ),
 };
 
 // Chat API
 export const chatApi = {
   getConversations: () =>
-    apiFetch<GetConversationsResponse>('/chat/conversations'),
+    apiFetch<GetConversationsResponse>("/chat/conversations"),
 
   getOrCreateDirectConversation: (receiverId: string) =>
-    apiFetch<CreateDirectConversationResponse>('/chat/conversations/direct', {
-      method: 'POST',
-      body: JSON.stringify({ receiver_id: receiverId }),
-    }, true),
+    apiFetch<CreateDirectConversationResponse>(
+      "/chat/conversations/direct",
+      {
+        method: "POST",
+        body: JSON.stringify({ receiver_id: receiverId }),
+      },
+      true
+    ),
 
   getMessages: (conversationId: string) =>
     apiFetch<GetMessagesResponse>(`/chat/messages/${conversationId}`),
 
   sendMessage: (conversationId: string, content: string) =>
-    apiFetch<SendMessageResponse>('/chat/messages', {
-      method: 'POST',
-      body: JSON.stringify({ conversation_id: conversationId, content }),
-    }, true),
+    apiFetch<SendMessageResponse>(
+      "/chat/messages",
+      {
+        method: "POST",
+        body: JSON.stringify({ conversation_id: conversationId, content }),
+      },
+      true
+    ),
 
   getParticipantInfo: (conversationId: string) =>
-    apiFetch<ConversationParticipantInfo>(`/chat/conversation/participants/${conversationId}`),
+    apiFetch<ConversationParticipantInfo>(
+      `/chat/conversation/participants/${conversationId}`
+    ),
 };

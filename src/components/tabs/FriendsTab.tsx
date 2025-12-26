@@ -33,6 +33,7 @@ const FriendsTab: React.FC = () => {
   const { navigateToConversation } = useNavigation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,9 +73,18 @@ const FriendsTab: React.FC = () => {
   };
 
   const handleSendRequest = async (userData: SearchUserData) => {
-    await sendRequest.mutateAsync(userData.username);
-    setIsDropdownOpen(false);
-    setSearchQuery("");
+    // Set the pending user ID to show loading only for this specific user
+    setPendingUserId(userData.id);
+    try {
+      await sendRequest.mutateAsync(userData.username);
+      setIsDropdownOpen(false);
+      setSearchQuery("");
+    } catch (error) {
+      // Error is handled by the mutation's onError callback
+    } finally {
+      // Clear the pending user ID after the request completes
+      setPendingUserId(null);
+    }
   };
 
   // Check if user is already friend or has pending request
@@ -176,7 +186,8 @@ const FriendsTab: React.FC = () => {
                             disabled={sendRequest.isPending}
                             className="h-8 gap-1"
                           >
-                            {sendRequest.isPending ? (
+                            {pendingUserId === userData.id &&
+                            sendRequest.isPending ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <>
