@@ -1,55 +1,67 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, Loader2, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { MessageSquare, Loader2, Eye, EyeOff } from "lucide-react";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Only redirect if user is already authenticated when component mounts
+  // This handles the case where user visits login page while already logged in
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+    // Only run on mount, not on every isAuthenticated change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim() || !password.trim()) {
       toast({
-        title: 'Validation error',
-        description: 'Please fill in all fields',
-        variant: 'destructive',
+        title: "Validation error",
+        description: "Please fill in all fields",
+        variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
       await login({ email: email.trim(), password });
       toast({
-        title: 'Welcome back!',
-        description: 'You have been logged in successfully.',
+        title: "Welcome back!",
+        description: "You have been logged in successfully.",
       });
-      navigate('/dashboard', { replace: true });
+      // Small delay to ensure toast is visible before navigation
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 500);
     } catch (error) {
+      // Show error toast - this will stay visible since we're not navigating
+      // The toast will remain visible (TOAST_REMOVE_DELAY is set to a very long time)
       toast({
-        title: 'Login failed',
-        description: error instanceof Error ? error.message : 'Invalid credentials',
-        variant: 'destructive',
+        title: "Login failed",
+        description:
+          error instanceof Error ? error.message : "Invalid credentials",
+        variant: "destructive",
       });
+      // Explicitly do NOT navigate on error - let user see the error and try again
+      // The page should NOT refresh or navigate away
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +76,9 @@ const LoginPage: React.FC = () => {
             <MessageSquare className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="mt-4 text-2xl font-bold">Welcome back</h1>
-          <p className="mt-1 text-muted-foreground">Sign in to your CodifyLive account</p>
+          <p className="mt-1 text-muted-foreground">
+            Sign in to your CodifyLive account
+          </p>
         </div>
 
         {/* Form */}
@@ -87,7 +101,7 @@ const LoginPage: React.FC = () => {
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -101,7 +115,11 @@ const LoginPage: React.FC = () => {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
@@ -113,15 +131,18 @@ const LoginPage: React.FC = () => {
                 Signing in...
               </>
             ) : (
-              'Sign in'
+              "Sign in"
             )}
           </Button>
         </form>
 
         {/* Register link */}
         <p className="text-center text-sm text-muted-foreground">
-          Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-primary hover:underline">
+          Don't have an account?{" "}
+          <Link
+            to="/register"
+            className="font-medium text-primary hover:underline"
+          >
             Create one
           </Link>
         </p>

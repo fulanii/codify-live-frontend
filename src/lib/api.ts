@@ -100,7 +100,17 @@ export const apiFetch = async <T>(
     });
 
     if (response.status === 401) {
-      // Try to refresh token
+      // For login/register endpoints, 401 means invalid credentials, not expired session
+      // Don't try to refresh token or redirect - just throw the error
+      const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/register');
+      
+      if (isAuthEndpoint) {
+        // For auth endpoints, just parse and throw the error
+        const error = await parseError(response);
+        throw new Error(error);
+      }
+      
+      // For other endpoints, try to refresh token
       const refreshed = await refreshAccessToken();
       if (refreshed) {
         // Retry the request with new token
@@ -120,7 +130,10 @@ export const apiFetch = async <T>(
         return retryResponse.json();
       } else {
         clearAccessToken();
-        window.location.href = '/login';
+        // Only redirect if we're not already on the login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         throw new Error('Session expired');
       }
     }
