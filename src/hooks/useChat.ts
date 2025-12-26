@@ -8,6 +8,9 @@ import notificationSound from '@/assets/ring.mp3';
 // Audio instance for notification
 let audioInstance: HTMLAudioElement | null = null;
 
+// Track recently sent messages to prevent notification sound
+const recentlySentMessages = new Set<string>();
+
 const playNotificationSound = () => {
   try {
     if (!audioInstance) {
@@ -21,6 +24,15 @@ const playNotificationSound = () => {
   } catch {
     // Ignore audio errors
   }
+};
+
+// Mark a message as sent by the current user
+export const markMessageAsSent = (messageId: string) => {
+  recentlySentMessages.add(messageId);
+  // Clean up after 5 seconds
+  setTimeout(() => {
+    recentlySentMessages.delete(messageId);
+  }, 5000);
 };
 
 export function useConversations() {
@@ -105,7 +117,51 @@ export function useSendMessage(conversationId: string | null) {
         };
       });
 
-      return { previousMessages };
+      return { previousMessages, optimisticContent: content };
+    },
+    onSuccess: (response, _content, context) => {
+      if (!conversationId || !response?.response_data) return;
+      
+      // Mark the sent message(s) so we don't play notification sound for them
+      response.response_data.forEach((msg) => {
+        markMessageAsSent(msg.id);
+      });
+
+      // Replace optimistic message with real message(s)
+      queryClient.setQueryData(['messages', conversationId], (old: { messages: MessageData[] } | undefined) => {
+        if (!old) return old;
+        
+        const newMessages = [...old.messages];
+        
+        // For each message in the response, replace the optimistic one
+        response.response_data.forEach((realMsg) => {
+          const messageData: MessageData = {
+            id: realMsg.id,
+            sender_id: realMsg.sender_id,
+            sender_username: 'You', // Will be updated by realtime if needed
+            content: realMsg.content,
+            created_at: realMsg.created_at,
+          };
+
+          // Find and replace the optimistic message with matching content
+          const optimisticIndex = newMessages.findIndex(
+            (msg) => msg.id.startsWith('temp-') && msg.content === realMsg.content
+          );
+          
+          if (optimisticIndex !== -1) {
+            // Replace the optimistic message
+            newMessages[optimisticIndex] = messageData;
+          } else {
+            // If no optimistic message found, check if real message already exists
+            const exists = newMessages.some((msg) => msg.id === realMsg.id);
+            if (!exists) {
+              newMessages.push(messageData);
+            }
+          }
+        });
+        
+        return { messages: newMessages };
+      });
     },
     onError: (error: Error, _content, context) => {
       // Rollback optimistic update
@@ -121,7 +177,7 @@ export function useSendMessage(conversationId: string | null) {
     onSettled: () => {
       pendingRef.current = false;
       if (conversationId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+        // Only invalidate conversations to update the preview, messages are handled by realtime subscription
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }
     },
@@ -132,12 +188,37 @@ export function useNewMessageNotification() {
   const previousMessagesRef = useRef<Map<string, string>>(new Map());
 
   const checkForNewMessages = useCallback((conversationId: string, messages: MessageData[], currentUserId: string) => {
-    if (!messages.length) return;
+    if (!messages.length || !currentUserId) return;
 
     const lastMessage = messages[messages.length - 1];
     const previousLastId = previousMessagesRef.current.get(conversationId);
 
-    if (previousLastId && lastMessage.id !== previousLastId && lastMessage.sender_id !== currentUserId) {
+    // Skip if this is the same message we already processed
+    if (lastMessage.id === previousLastId) return;
+
+    // Skip if this is an optimistic message (temp-*)
+    if (lastMessage.id.startsWith('temp-')) {
+      previousMessagesRef.current.set(conversationId, lastMessage.id);
+      return;
+    }
+
+    // Skip if this message was recently sent by the current user
+    if (recentlySentMessages.has(lastMessage.id)) {
+      previousMessagesRef.current.set(conversationId, lastMessage.id);
+      return;
+    }
+
+    // Only play sound if:
+    // 1. There was a previous message (not the first message)
+    // 2. The message ID changed (new message)
+    // 3. The sender is NOT the current user (check both 'me' and actual user ID)
+    // 4. The message is not a recently sent one
+    if (
+      previousLastId && 
+      lastMessage.id !== previousLastId && 
+      lastMessage.sender_id !== currentUserId &&
+      lastMessage.sender_id !== 'me'
+    ) {
       playNotificationSound();
     }
 

@@ -8,6 +8,7 @@ import {
   useSendMessage,
   useCreateOrGetConversation,
   useNewMessageNotification,
+  markMessageAsSent,
 } from "@/hooks/useChat";
 import { UserAvatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -261,18 +262,24 @@ const ConversationView: React.FC<ConversationViewProps> = ({
         },
         (payload) => {
           const newMessage = payload.new;
+          
+          // If this message is from the current user, mark it as sent to prevent notification sound
+          if (newMessage.sender_id === currentUserId) {
+            markMessageAsSent(newMessage.id);
+          }
+          
           // Update the messages cache
           queryClient.setQueryData(
             ["messages", conversationId],
             (old: { messages: MessageData[] } | undefined) => {
               if (!old) return old;
+              
               // Check if message already exists (avoid duplicates)
               const exists = old.messages.some(
                 (msg) => msg.id === newMessage.id
               );
               if (exists) return old;
 
-              // Add the new message
               const messageData: MessageData = {
                 id: newMessage.id,
                 sender_id: newMessage.sender_id,
@@ -280,6 +287,25 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                 content: newMessage.content,
                 created_at: newMessage.created_at,
               };
+
+              // If this is a message from the current user, replace the optimistic message instead of adding
+              if (newMessage.sender_id === currentUserId) {
+                // Find and replace the optimistic message (temp-*) with the same content
+                const optimisticIndex = old.messages.findIndex(
+                  (msg) => msg.id.startsWith('temp-') && msg.content === newMessage.content
+                );
+                
+                if (optimisticIndex !== -1) {
+                  // Replace the optimistic message
+                  const newMessages = [...old.messages];
+                  newMessages[optimisticIndex] = messageData;
+                  return {
+                    messages: newMessages,
+                  };
+                }
+              }
+
+              // Otherwise, just add the new message
               return {
                 messages: [...old.messages, messageData],
               };
