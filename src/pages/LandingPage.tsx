@@ -207,8 +207,13 @@ export default function Landing() {
                 className="p-8 hover:shadow-lg transition-all duration-300 fade-in-on-scroll opacity-0 will-change-transform"
                 data-testid="card-feature-audio"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
-                  <Phone className="h-6 w-6 text-primary" />
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
+                    <Phone className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning/20 text-warning">
+                    Coming soon
+                  </span>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Audio Call</h3>
                 <p className="text-muted-foreground">
@@ -222,8 +227,13 @@ export default function Landing() {
                 className="p-8 hover:shadow-lg transition-all duration-300 fade-in-on-scroll opacity-0 will-change-transform"
                 data-testid="card-feature-video"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
-                  <Video className="h-6 w-6 text-primary" />
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
+                    <Video className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning/20 text-warning">
+                    Coming soon
+                  </span>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Video Call</h3>
                 <p className="text-muted-foreground">
@@ -237,8 +247,13 @@ export default function Landing() {
                 className="p-8 hover:shadow-lg transition-all duration-300 fade-in-on-scroll opacity-0 will-change-transform"
                 data-testid="card-feature-coding"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
-                  <Code className="h-6 w-6 text-primary" />
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
+                    <Code className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning/20 text-warning">
+                    Coming soon
+                  </span>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">
                   Real-time Collaborative Browser Coding
@@ -254,8 +269,13 @@ export default function Landing() {
                 className="p-8 hover:shadow-lg transition-all duration-300 fade-in-on-scroll opacity-0 will-change-transform"
                 data-testid="card-feature-files"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
-                  <FileText className="h-6 w-6 text-primary" />
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 transition-transform duration-300 hover:scale-110 will-change-transform">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning/20 text-warning">
+                    Coming soon
+                  </span>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">
                   Work on Local Files or Upload Files
