@@ -224,6 +224,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
   const queryClient = useQueryClient();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef<boolean>(false);
 
   const { data: messagesData, isLoading } = useMessages(conversationId);
   const { data: participant } = useConversationParticipant(conversationId);
@@ -371,32 +373,58 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     };
   }, [conversationId, currentUserId, currentUsername, queryClient]);
 
-  // Handle typing indicator - start typing immediately
-  const handleTypingStart = useCallback(() => {
-    if (!presenceChannelRef.current || !isFriend) return;
-
-    // Update presence to indicate typing
-    presenceChannelRef.current.track({
-      typing: true,
-      username: currentUsername,
-    });
-  }, [currentUsername, isFriend]);
-
   // Handle typing indicator - stop typing immediately
   const handleTypingStop = useCallback(() => {
     if (!presenceChannelRef.current) return;
 
-    // Stop typing indicator immediately
-    presenceChannelRef.current.track({
-      typing: false,
-      username: currentUsername,
-    });
+    // Clear timeout if it exists
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    // Only update if we're currently showing typing
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      presenceChannelRef.current.track({
+        typing: false,
+        username: currentUsername,
+      });
+    }
   }, [currentUsername]);
+
+  // Handle typing indicator - start typing immediately
+  const handleTypingStart = useCallback(() => {
+    if (!presenceChannelRef.current || !isFriend) return;
+
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    // Show typing indicator immediately
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      presenceChannelRef.current.track({
+        typing: true,
+        username: currentUsername,
+      });
+    }
+
+    // Set a very short timeout (300ms) to stop typing when user stops
+    typingTimeoutRef.current = setTimeout(() => {
+      handleTypingStop();
+    }, 300);
+  }, [currentUsername, isFriend, handleTypingStop]);
 
   // Cleanup - stop typing when component unmounts
   useEffect(() => {
     return () => {
-      // Stop typing when component unmounts
+      // Clear timeout and stop typing when component unmounts
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
       handleTypingStop();
     };
   }, [handleTypingStop]);
@@ -423,13 +451,20 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMessage(value);
+    // Don't trigger typing indicator here - only on key press
+  };
 
-    // Start typing if there's text, stop if empty
-    if (value.trim()) {
+  // Handle key press to show typing indicator instantly
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Only show typing for actual character keys (not modifiers, arrows, etc.)
+    if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') {
       handleTypingStart();
-    } else {
-      handleTypingStop();
     }
+  };
+
+  // Handle blur to stop typing immediately when input loses focus
+  const handleBlur = () => {
+    handleTypingStop();
   };
 
   const formatMessageTime = (dateStr: string) => {
@@ -518,6 +553,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             ref={inputRef}
             value={message}
             onChange={handleMessageChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
             placeholder="Type a message..."
             className="flex-1"
             disabled={sendMessage.isPending || !isFriend}
