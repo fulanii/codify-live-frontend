@@ -92,11 +92,11 @@ export default function Landing() {
 
           <div className="flex items-center gap-2">
             {!isAuthenticated && (
-              // <Link to="/login"> {/* uncomment once ready for production */}
-                <Button variant="ghost" data-testid="button-login" disabled>
+              <Link to="/login">
+                <Button variant="ghost" data-testid="button-login" >
                   Login
                 </Button>
-              // </Link>
+              </Link>
             )}
             {isAuthenticated && (
               <Button
@@ -109,10 +109,9 @@ export default function Landing() {
                 Logout
               </Button>
             )}
-            {/* uncomment once ready for production */}
-            {/* <Link to={primaryCta.href}> */}
-              <Button data-testid="button-register" disabled>{primaryCta.label}</Button>
-            {/* </Link> */}
+            <Link to={primaryCta.href}>
+              <Button data-testid="button-register" >{primaryCta.label}</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -136,17 +135,15 @@ export default function Landing() {
                 place.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                {/* uncomment once ready for production */}
-                {/* <Link to={primaryCta.href}> */}
+                <Link to={primaryCta.href}>
                   <Button
                     size="lg"
                     className="w-full sm:w-auto transition-transform duration-200 hover:scale-105 will-change-transform"
                     data-testid="button-hero-register"
-                    disabled
                   >
                     {primaryCta.label} <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                {/* </Link> */}
+                </Link>
                 <a href="#features">
                   <Button
                     size="lg"

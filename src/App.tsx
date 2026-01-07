@@ -31,9 +31,8 @@ const App = () => (
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Landing />} />
-              {/* uncomment once ready for production */}
-              {/* <Route path="/login" element={<LoginPage />} /> */}
-              {/* <Route path="/register" element={<RegisterPage />} /> */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={<DashboardLayout />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
