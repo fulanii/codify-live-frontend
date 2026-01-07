@@ -226,6 +226,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   const queryClient = useQueryClient();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef<boolean>(false);
+  // Unique session ID for this device to support multiple devices per user
+  const sessionIdRef = useRef<string>(`${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   const { data: messagesData, isLoading } = useMessages(conversationId);
   const { data: participant } = useConversationParticipant(conversationId);
@@ -391,10 +393,13 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     setupSubscription();
 
     // Set up Presence for typing indicators
+    // Use unique key per device to support multiple devices per user
+    // Use '::' separator to avoid conflicts with UUIDs (which contain '-')
+    const presenceKey = `${currentUserId}::${sessionIdRef.current}`;
     const presenceChannel = supabase.channel(`typing:${conversationId}`, {
       config: {
         presence: {
-          key: currentUserId,
+          key: presenceKey,
         },
       },
     });
@@ -402,18 +407,34 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     presenceChannel
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
-        const typing: string[] = [];
-        Object.keys(state).forEach((userId) => {
-          if (userId !== currentUserId) {
-            const userPresence = state[userId] as any[];
-            if (userPresence && userPresence.length > 0) {
-              const presence = userPresence[0];
+        // Track typing users by their actual user ID (not presence key)
+        // This ensures consistency across multiple devices
+        const typingByUserId = new Map<string, string>(); // userId -> username
+        
+        Object.keys(state).forEach((presenceKey) => {
+          const userPresence = state[presenceKey] as any[];
+          if (userPresence && userPresence.length > 0) {
+            userPresence.forEach((presence) => {
+              // Extract user ID from presence key (format: userId::sessionId)
+              // Use '::' separator to handle UUIDs correctly
+              const userId = presenceKey.split('::')[0];
+              
+              // Skip if this is the current user
+              if (userId === currentUserId) return;
+              
+              // If this user is typing, add them to the map
+              // Use userId from presence data if available, otherwise use parsed key
+              const actualUserId = presence.userId || userId;
               if (presence.typing) {
-                typing.push(presence.username || userId);
+                const username = presence.username || actualUserId;
+                typingByUserId.set(actualUserId, username);
               }
-            }
+            });
           }
         });
+        
+        // Convert map to array of unique usernames
+        const typing = Array.from(typingByUserId.values());
         setTypingUsers(typing);
       })
       .on("presence", { event: "join" }, ({ key, newPresences }) => {
@@ -427,6 +448,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
           await presenceChannel.track({
             typing: false,
             username: currentUsername,
+            userId: currentUserId, // Include userId for easier filtering
           });
         }
       });
@@ -456,14 +478,15 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       typingTimeoutRef.current = null;
     }
 
-    // Only update if we're currently showing typing
-    if (isTypingRef.current) {
-      isTypingRef.current = false;
-      presenceChannelRef.current.track({
-        typing: false,
-        username: currentUsername,
-      });
-    }
+      // Only update if we're currently showing typing
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        presenceChannelRef.current.track({
+          typing: false,
+          username: currentUsername,
+          userId: currentUserId, // Include userId for easier filtering
+        });
+      }
   }, [currentUsername]);
 
   // Handle typing indicator - start typing immediately with no delay
@@ -482,6 +505,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       presenceChannelRef.current.track({
         typing: true,
         username: currentUsername,
+        userId: currentUserId, // Include userId for easier filtering
       });
     }
 
@@ -530,14 +554,23 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMessage(value);
-    // Don't trigger typing indicator here - only on key press
+    // Trigger typing indicator on input change (works better on mobile)
+    if (value.trim()) {
+      handleTypingStart();
+    } else {
+      handleTypingStop();
+    }
   };
 
-  // Handle key press to show typing indicator instantly
+  // Handle key press to show typing indicator instantly (desktop)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Only show typing for actual character keys (not modifiers, arrows, etc.)
     if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") {
       handleTypingStart();
+    }
+    // Stop typing on Enter (before sending)
+    if (e.key === "Enter" && !e.shiftKey) {
+      handleTypingStop();
     }
   };
 
