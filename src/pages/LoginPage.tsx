@@ -17,15 +17,11 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Only redirect if user is already authenticated when component mounts
-  // This handles the case where user visits login page while already logged in
   React.useEffect(() => {
     if (isAuthenticated) {
       navigate("/dashboard", { replace: true });
     }
-    // Only run on mount, not on every isAuthenticated change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,21 +43,14 @@ const LoginPage: React.FC = () => {
         title: "Welcome back!",
         description: "You have been logged in successfully.",
       });
-      // Small delay to ensure toast is visible before navigation
-      setTimeout(() => {
-        navigate("/dashboard", { replace: true });
-      }, 500);
+      navigate("/dashboard", { replace: true });
     } catch (error) {
-      // Show error toast - this will stay visible since we're not navigating
-      // The toast will remain visible (TOAST_REMOVE_DELAY is set to a very long time)
       toast({
         title: "Login failed",
         description:
           error instanceof Error ? error.message : "Invalid credentials",
         variant: "destructive",
       });
-      // Explicitly do NOT navigate on error - let user see the error and try again
-      // The page should NOT refresh or navigate away
     } finally {
       setIsLoading(false);
     }

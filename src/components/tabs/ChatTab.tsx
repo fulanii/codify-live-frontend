@@ -251,35 +251,65 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   useEffect(() => {
     if (!conversationId) return;
 
-    // Subscribe to message changes
-    const channel = supabase
-      .channel(`messages:${conversationId}`, {
-        config: {
-          broadcast: { self: true },
-        },
-      })
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMessage = payload.new;
-          
-          // If this message is from the current user, mark it as sent to prevent notification sound
-          if (newMessage.sender_id === currentUserId) {
-            markMessageAsSent(newMessage.id);
-          }
-          
-          // Update the messages cache immediately
-          queryClient.setQueryData(
-            ["messages", conversationId],
-            (old: { messages: MessageData[] } | undefined) => {
-              if (!old) {
-                // If no old data, create new structure
+    let subscriptionRetryCount = 0;
+    const maxRetries = 3;
+
+    const setupSubscription = () => {
+      // Clean up existing channel if any
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      // Subscribe to message changes
+      const channel = supabase
+        .channel(`messages:${conversationId}-${Date.now()}`, {
+          config: {
+            broadcast: { self: true },
+          },
+        })
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const newMessage = payload.new;
+
+            if (!newMessage || !newMessage.id) {
+              console.error("Invalid message payload:", payload);
+              return;
+            }
+
+            // If this message is from the current user, mark it as sent to prevent notification sound
+            if (newMessage.sender_id === currentUserId) {
+              markMessageAsSent(newMessage.id);
+            }
+
+            // Update the messages cache immediately
+            queryClient.setQueryData(
+              ["messages", conversationId],
+              (old: { messages: MessageData[] } | undefined) => {
+                if (!old) {
+                  // If no old data, create new structure
+                  const messageData: MessageData = {
+                    id: newMessage.id,
+                    sender_id: newMessage.sender_id,
+                    sender_username: newMessage.sender_username || "Unknown",
+                    content: newMessage.content,
+                    created_at: newMessage.created_at,
+                  };
+                  return { messages: [messageData] };
+                }
+
+                // Check if message already exists (avoid duplicates)
+                const exists = old.messages.some(
+                  (msg) => msg.id === newMessage.id
+                );
+                if (exists) return old;
+
                 const messageData: MessageData = {
                   id: newMessage.id,
                   sender_id: newMessage.sender_id,
@@ -287,59 +317,78 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                   content: newMessage.content,
                   created_at: newMessage.created_at,
                 };
-                return { messages: [messageData] };
-              }
-              
-              // Check if message already exists (avoid duplicates)
-              const exists = old.messages.some(
-                (msg) => msg.id === newMessage.id
-              );
-              if (exists) return old;
 
-              const messageData: MessageData = {
-                id: newMessage.id,
-                sender_id: newMessage.sender_id,
-                sender_username: newMessage.sender_username || "Unknown",
-                content: newMessage.content,
-                created_at: newMessage.created_at,
-              };
+                // If this is a message from the current user, replace the optimistic message instead of adding
+                if (newMessage.sender_id === currentUserId) {
+                  // Find and replace the optimistic message (temp-*) with the same content
+                  const optimisticIndex = old.messages.findIndex(
+                    (msg) =>
+                      msg.id.startsWith("temp-") &&
+                      msg.content === newMessage.content
+                  );
 
-              // If this is a message from the current user, replace the optimistic message instead of adding
-              if (newMessage.sender_id === currentUserId) {
-                // Find and replace the optimistic message (temp-*) with the same content
-                const optimisticIndex = old.messages.findIndex(
-                  (msg) => msg.id.startsWith('temp-') && msg.content === newMessage.content
-                );
-                
-                if (optimisticIndex !== -1) {
-                  // Replace the optimistic message
-                  const newMessages = [...old.messages];
-                  newMessages[optimisticIndex] = messageData;
-                  return {
-                    messages: newMessages,
-                  };
+                  if (optimisticIndex !== -1) {
+                    // Replace the optimistic message
+                    const newMessages = [...old.messages];
+                    newMessages[optimisticIndex] = messageData;
+                    return {
+                      messages: newMessages,
+                    };
+                  }
                 }
+
+                // Otherwise, just add the new message
+                return {
+                  messages: [...old.messages, messageData],
+                };
               }
+            );
+          }
+        )
+        .subscribe(async (status, err) => {
+          if (status === "SUBSCRIBED") {
+            console.log(
+              "✅ Realtime subscription active for conversation:",
+              conversationId
+            );
+            subscriptionRetryCount = 0; // Reset retry count on success
+          } else if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            console.error("❌ Realtime subscription error:", status, err);
 
-              // Otherwise, just add the new message
-              return {
-                messages: [...old.messages, messageData],
-              };
+            // Fallback: invalidate queries to refetch messages
+            queryClient.invalidateQueries({
+              queryKey: ["messages", conversationId],
+            });
+
+            // Try to resubscribe with exponential backoff
+            if (subscriptionRetryCount < maxRetries) {
+              subscriptionRetryCount++;
+              const delay = Math.min(
+                1000 * Math.pow(2, subscriptionRetryCount),
+                10000
+              );
+              console.log(
+                `Retrying subscription in ${delay}ms (attempt ${subscriptionRetryCount}/${maxRetries})`
+              );
+              setTimeout(() => {
+                setupSubscription();
+              }, delay);
+            } else {
+              console.error(
+                "Max subscription retries reached, falling back to polling"
+              );
             }
-          );
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Realtime subscription active for conversation:', conversationId);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime subscription error for conversation:', conversationId);
-          // Fallback: invalidate queries to refetch messages
-          queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-        }
-      });
+          }
+        });
 
-    channelRef.current = channel;
+      channelRef.current = channel;
+    };
+
+    setupSubscription();
 
     // Set up Presence for typing indicators
     const presenceChannel = supabase.channel(`typing:${conversationId}`, {
@@ -417,7 +466,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     }
   }, [currentUsername]);
 
-  // Handle typing indicator - start typing immediately
+  // Handle typing indicator - start typing immediately with no delay
   const handleTypingStart = useCallback(() => {
     if (!presenceChannelRef.current || !isFriend) return;
 
@@ -427,7 +476,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       typingTimeoutRef.current = null;
     }
 
-    // Show typing indicator immediately
+    // Show typing indicator immediately - no delay
     if (!isTypingRef.current) {
       isTypingRef.current = true;
       presenceChannelRef.current.track({
@@ -436,10 +485,10 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       });
     }
 
-    // Set a very short timeout (300ms) to stop typing when user stops
+    // Set timeout to stop typing when user stops (1 second of inactivity)
     typingTimeoutRef.current = setTimeout(() => {
       handleTypingStop();
-    }, 300);
+    }, 1000);
   }, [currentUsername, isFriend, handleTypingStop]);
 
   // Cleanup - stop typing when component unmounts
@@ -465,6 +514,12 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
     try {
       await sendMessage.mutateAsync(content);
+      // Force refetch after sending to ensure message appears (fallback if realtime fails)
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: ["messages", conversationId],
+        });
+      }, 1000);
     } catch {
       setMessage(content); // Restore message on failure
     }
@@ -481,7 +536,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   // Handle key press to show typing indicator instantly
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Only show typing for actual character keys (not modifiers, arrows, etc.)
-    if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') {
+    if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") {
       handleTypingStart();
     }
   };
