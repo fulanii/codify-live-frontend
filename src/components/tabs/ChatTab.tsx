@@ -253,7 +253,11 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
     // Subscribe to message changes
     const channel = supabase
-      .channel(`messages:${conversationId}`)
+      .channel(`messages:${conversationId}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         "postgres_changes",
         {
@@ -270,11 +274,21 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             markMessageAsSent(newMessage.id);
           }
           
-          // Update the messages cache
+          // Update the messages cache immediately
           queryClient.setQueryData(
             ["messages", conversationId],
             (old: { messages: MessageData[] } | undefined) => {
-              if (!old) return old;
+              if (!old) {
+                // If no old data, create new structure
+                const messageData: MessageData = {
+                  id: newMessage.id,
+                  sender_id: newMessage.sender_id,
+                  sender_username: newMessage.sender_username || "Unknown",
+                  content: newMessage.content,
+                  created_at: newMessage.created_at,
+                };
+                return { messages: [messageData] };
+              }
               
               // Check if message already exists (avoid duplicates)
               const exists = old.messages.some(
@@ -315,7 +329,15 @@ const ConversationView: React.FC<ConversationViewProps> = ({
           );
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime subscription active for conversation:', conversationId);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime subscription error for conversation:', conversationId);
+          // Fallback: invalidate queries to refetch messages
+          queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+        }
+      });
 
     channelRef.current = channel;
 
@@ -366,9 +388,11 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       // Cleanup subscriptions
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
       if (presenceChannelRef.current) {
         supabase.removeChannel(presenceChannelRef.current);
+        presenceChannelRef.current = null;
       }
     };
   }, [conversationId, currentUserId, currentUsername, queryClient]);

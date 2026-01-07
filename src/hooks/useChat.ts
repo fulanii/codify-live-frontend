@@ -127,9 +127,20 @@ export function useSendMessage(conversationId: string | null) {
         markMessageAsSent(msg.id);
       });
 
-      // Replace optimistic message with real message(s)
+      // Replace optimistic message with real message(s) immediately
+      // This ensures the message appears even if realtime subscription has a delay
       queryClient.setQueryData(['messages', conversationId], (old: { messages: MessageData[] } | undefined) => {
-        if (!old) return old;
+        if (!old) {
+          // If no old data, create new structure with the real messages
+          const messages = response.response_data.map((realMsg) => ({
+            id: realMsg.id,
+            sender_id: realMsg.sender_id,
+            sender_username: 'You',
+            content: realMsg.content,
+            created_at: realMsg.created_at,
+          }));
+          return { messages };
+        }
         
         const newMessages = [...old.messages];
         
