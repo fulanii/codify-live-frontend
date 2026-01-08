@@ -49,9 +49,8 @@ export function useMessages(conversationId: string | null) {
     queryKey: ["messages", conversationId],
     queryFn: () => chatApi.getMessages(conversationId!),
     enabled: !!conversationId,
-    staleTime: 0, // Always allow refetching
-    refetchInterval: 2 * 1000, // Poll every 2 seconds as fallback if realtime fails
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes - rely on realtime for updates
+    refetchOnWindowFocus: true, // Only refetch when user returns to tab
   });
 }
 
