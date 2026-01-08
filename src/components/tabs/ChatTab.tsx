@@ -227,7 +227,9 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef<boolean>(false);
   // Unique session ID for this device to support multiple devices per user
-  const sessionIdRef = useRef<string>(`${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const sessionIdRef = useRef<string>(
+    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  );
 
   const { data: messagesData, isLoading } = useMessages(conversationId);
   const { data: participant } = useConversationParticipant(conversationId);
@@ -255,6 +257,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
     let subscriptionRetryCount = 0;
     const maxRetries = 3;
+    let isSubscriptionActive = false;
+    let fallbackPollingInterval: NodeJS.Timeout | null = null;
 
     const setupSubscription = () => {
       // Clean up existing channel if any
@@ -262,9 +266,9 @@ const ConversationView: React.FC<ConversationViewProps> = ({
         supabase.removeChannel(channelRef.current);
       }
 
-      // Subscribe to message changes
+      // Use stable channel name (not Date.now() to avoid reconnection issues)
       const channel = supabase
-        .channel(`messages:${conversationId}-${Date.now()}`, {
+        .channel(`messages:${conversationId}`, {
           config: {
             broadcast: { self: true },
           },
@@ -279,6 +283,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
           },
           (payload) => {
             const newMessage = payload.new;
+
+            console.log("📨 Realtime message received:", newMessage);
 
             if (!newMessage || !newMessage.id) {
               console.error("Invalid message payload:", payload);
@@ -310,7 +316,13 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                 const exists = old.messages.some(
                   (msg) => msg.id === newMessage.id
                 );
-                if (exists) return old;
+                if (exists) {
+                  console.log(
+                    "Message already exists, skipping:",
+                    newMessage.id
+                  );
+                  return old;
+                }
 
                 const messageData: MessageData = {
                   id: newMessage.id,
@@ -333,6 +345,9 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                     // Replace the optimistic message
                     const newMessages = [...old.messages];
                     newMessages[optimisticIndex] = messageData;
+                    console.log(
+                      "✅ Replaced optimistic message with real message"
+                    );
                     return {
                       messages: newMessages,
                     };
@@ -340,6 +355,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                 }
 
                 // Otherwise, just add the new message
+                console.log("✅ Added new message to cache");
                 return {
                   messages: [...old.messages, messageData],
                 };
@@ -353,18 +369,33 @@ const ConversationView: React.FC<ConversationViewProps> = ({
               "✅ Realtime subscription active for conversation:",
               conversationId
             );
+            isSubscriptionActive = true;
             subscriptionRetryCount = 0; // Reset retry count on success
+
+            // Clear any fallback polling if subscription is active
+            if (fallbackPollingInterval) {
+              clearInterval(fallbackPollingInterval);
+              fallbackPollingInterval = null;
+              console.log("🔄 Stopped fallback polling - subscription active");
+            }
           } else if (
             status === "CHANNEL_ERROR" ||
             status === "TIMED_OUT" ||
             status === "CLOSED"
           ) {
             console.error("❌ Realtime subscription error:", status, err);
+            isSubscriptionActive = false;
 
-            // Fallback: invalidate queries to refetch messages
-            queryClient.invalidateQueries({
-              queryKey: ["messages", conversationId],
-            });
+            // Start fallback polling only if subscription fails
+            if (!fallbackPollingInterval) {
+              console.log("🔄 Starting fallback polling (5s interval)");
+              fallbackPollingInterval = setInterval(() => {
+                console.log("🔄 Fallback: Refetching messages");
+                queryClient.invalidateQueries({
+                  queryKey: ["messages", conversationId],
+                });
+              }, 5000); // Poll every 5 seconds as fallback
+            }
 
             // Try to resubscribe with exponential backoff
             if (subscriptionRetryCount < maxRetries) {
@@ -381,7 +412,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
               }, delay);
             } else {
               console.error(
-                "Max subscription retries reached, falling back to polling"
+                "Max subscription retries reached, using fallback polling"
               );
             }
           }
@@ -410,18 +441,18 @@ const ConversationView: React.FC<ConversationViewProps> = ({
         // Track typing users by their actual user ID (not presence key)
         // This ensures consistency across multiple devices
         const typingByUserId = new Map<string, string>(); // userId -> username
-        
+
         Object.keys(state).forEach((presenceKey) => {
           const userPresence = state[presenceKey] as any[];
           if (userPresence && userPresence.length > 0) {
             userPresence.forEach((presence) => {
               // Extract user ID from presence key (format: userId::sessionId)
               // Use '::' separator to handle UUIDs correctly
-              const userId = presenceKey.split('::')[0];
-              
+              const userId = presenceKey.split("::")[0];
+
               // Skip if this is the current user
               if (userId === currentUserId) return;
-              
+
               // If this user is typing, add them to the map
               // Use userId from presence data if available, otherwise use parsed key
               const actualUserId = presence.userId || userId;
@@ -432,7 +463,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             });
           }
         });
-        
+
         // Convert map to array of unique usernames
         const typing = Array.from(typingByUserId.values());
         setTypingUsers(typing);
@@ -456,14 +487,20 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     presenceChannelRef.current = presenceChannel;
 
     return () => {
-      // Cleanup subscriptions
+      // Cleanup message subscription
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      // Cleanup presence channel
       if (presenceChannelRef.current) {
         supabase.removeChannel(presenceChannelRef.current);
         presenceChannelRef.current = null;
+      }
+      // Cleanup fallback polling
+      if (fallbackPollingInterval) {
+        clearInterval(fallbackPollingInterval);
+        fallbackPollingInterval = null;
       }
     };
   }, [conversationId, currentUserId, currentUsername, queryClient]);
@@ -478,15 +515,15 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       typingTimeoutRef.current = null;
     }
 
-      // Only update if we're currently showing typing
-      if (isTypingRef.current) {
-        isTypingRef.current = false;
-        presenceChannelRef.current.track({
-          typing: false,
-          username: currentUsername,
-          userId: currentUserId, // Include userId for easier filtering
-        });
-      }
+    // Only update if we're currently showing typing
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      presenceChannelRef.current.track({
+        typing: false,
+        username: currentUsername,
+        userId: currentUserId, // Include userId for easier filtering
+      });
+    }
   }, [currentUsername]);
 
   // Handle typing indicator - start typing immediately with no delay
