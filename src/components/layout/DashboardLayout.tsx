@@ -64,7 +64,7 @@ const DashboardLayout: React.FC = () => {
         <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
         <main className="flex-1 overflow-hidden md:pt-0">
           <div className="h-full pt-20 md:pt-0">
-            <ErrorBoundary>{renderContent()}</ErrorBoundary>
+          <ErrorBoundary>{renderContent()}</ErrorBoundary>
           </div>
         </main>
       </div>

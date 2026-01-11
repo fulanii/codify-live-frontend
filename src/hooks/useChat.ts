@@ -92,7 +92,7 @@ export function useSendMessage(conversationId: string | null) {
     mutationFn: async (content: string) => {
       if (!conversationId) throw new Error("No conversation selected");
       if (pendingRef.current) throw new Error("Message already sending");
-
+      
       pendingRef.current = true;
       return chatApi.sendMessage(conversationId, content);
     },
@@ -114,16 +114,16 @@ export function useSendMessage(conversationId: string | null) {
       queryClient.setQueryData(
         ["messages", conversationId],
         (old: { messages: MessageData[] } | undefined) => {
-          const optimisticMessage: MessageData = {
-            id: `temp-${Date.now()}`,
+        const optimisticMessage: MessageData = {
+          id: `temp-${Date.now()}`,
             sender_id: "me",
             sender_username: "You",
-            content,
-            created_at: new Date().toISOString(),
-          };
-          return {
-            messages: [...(old?.messages || []), optimisticMessage],
-          };
+          content,
+          created_at: new Date().toISOString(),
+        };
+        return {
+          messages: [...(old?.messages || []), optimisticMessage],
+        };
         }
       );
 
@@ -223,8 +223,8 @@ export function useNewMessageNotification() {
     ) => {
       if (!messages.length || !currentUserId) return;
 
-      const lastMessage = messages[messages.length - 1];
-      const previousLastId = previousMessagesRef.current.get(conversationId);
+    const lastMessage = messages[messages.length - 1];
+    const previousLastId = previousMessagesRef.current.get(conversationId);
 
       // Skip if this is the same message we already processed
       if (lastMessage.id === previousLastId) return;
@@ -252,10 +252,10 @@ export function useNewMessageNotification() {
         lastMessage.sender_id !== currentUserId &&
         lastMessage.sender_id !== "me"
       ) {
-        playNotificationSound();
-      }
+      playNotificationSound();
+    }
 
-      previousMessagesRef.current.set(conversationId, lastMessage.id);
+    previousMessagesRef.current.set(conversationId, lastMessage.id);
     },
     []
   );

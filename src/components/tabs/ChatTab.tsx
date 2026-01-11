@@ -255,41 +255,63 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   useEffect(() => {
     if (!conversationId) return;
 
+    console.log("🔌 Setting up realtime subscription for conversation:", conversationId);
+
     let subscriptionRetryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
     let isSubscriptionActive = false;
     let fallbackPollingInterval: NodeJS.Timeout | null = null;
 
-    const setupSubscription = () => {
+    const setupSubscription = async () => {
       // Clean up existing channel if any
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        console.log("🧹 Cleaning up existing channel");
+        try {
+          await supabase.removeChannel(channelRef.current);
+        } catch (error) {
+          console.warn("Error removing channel:", error);
+        }
       }
 
-      // Use stable channel name (not Date.now() to avoid reconnection issues)
-      const channel = supabase
-        .channel(`messages:${conversationId}`, {
+      // Use stable channel name with unique identifier to avoid conflicts
+      const channelName = `messages:${conversationId}:${currentUserId}`;
+      console.log("📡 Creating channel:", channelName);
+
+    const channel = supabase
+        .channel(channelName, {
           config: {
             broadcast: { self: true },
+            presence: { key: currentUserId },
           },
         })
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `conversation_id=eq.${conversationId}`,
-          },
-          (payload) => {
-            const newMessage = payload.new;
-
-            console.log("📨 Realtime message received:", newMessage);
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+            console.log("📨 Realtime event received:", {
+              eventType: payload.eventType,
+              new: payload.new,
+              old: payload.old,
+              table: payload.table,
+              schema: payload.schema,
+            });
+          const newMessage = payload.new;
 
             if (!newMessage || !newMessage.id) {
-              console.error("Invalid message payload:", payload);
+              console.error("❌ Invalid message payload:", payload);
               return;
             }
+
+            console.log("✅ Processing new message:", {
+              id: newMessage.id,
+              sender_id: newMessage.sender_id,
+              content: newMessage.content?.substring(0, 50),
+            });
 
             // If this message is from the current user, mark it as sent to prevent notification sound
             if (newMessage.sender_id === currentUserId) {
@@ -297,9 +319,9 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             }
 
             // Update the messages cache immediately
-            queryClient.setQueryData(
-              ["messages", conversationId],
-              (old: { messages: MessageData[] } | undefined) => {
+          queryClient.setQueryData(
+            ["messages", conversationId],
+            (old: { messages: MessageData[] } | undefined) => {
                 if (!old) {
                   // If no old data, create new structure
                   const messageData: MessageData = {
@@ -309,28 +331,29 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                     content: newMessage.content,
                     created_at: newMessage.created_at,
                   };
+                  console.log("📝 Created new messages array with first message");
                   return { messages: [messageData] };
                 }
 
-                // Check if message already exists (avoid duplicates)
-                const exists = old.messages.some(
-                  (msg) => msg.id === newMessage.id
-                );
+              // Check if message already exists (avoid duplicates)
+              const exists = old.messages.some(
+                (msg) => msg.id === newMessage.id
+              );
                 if (exists) {
                   console.log(
-                    "Message already exists, skipping:",
+                    "⚠️ Message already exists, skipping:",
                     newMessage.id
                   );
                   return old;
                 }
 
-                const messageData: MessageData = {
-                  id: newMessage.id,
-                  sender_id: newMessage.sender_id,
-                  sender_username: newMessage.sender_username || "Unknown",
-                  content: newMessage.content,
-                  created_at: newMessage.created_at,
-                };
+              const messageData: MessageData = {
+                id: newMessage.id,
+                sender_id: newMessage.sender_id,
+                sender_username: newMessage.sender_username || "Unknown",
+                content: newMessage.content,
+                created_at: newMessage.created_at,
+              };
 
                 // If this is a message from the current user, replace the optimistic message instead of adding
                 if (newMessage.sender_id === currentUserId) {
@@ -345,9 +368,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                     // Replace the optimistic message
                     const newMessages = [...old.messages];
                     newMessages[optimisticIndex] = messageData;
-                    console.log(
-                      "✅ Replaced optimistic message with real message"
-                    );
+                    console.log("✅ Replaced optimistic message with real message");
                     return {
                       messages: newMessages,
                     };
@@ -355,18 +376,20 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                 }
 
                 // Otherwise, just add the new message
-                console.log("✅ Added new message to cache");
-                return {
-                  messages: [...old.messages, messageData],
-                };
-              }
-            );
-          }
-        )
+                console.log("✅ Added new message to cache (total:", old.messages.length + 1, ")");
+              return {
+                messages: [...old.messages, messageData],
+              };
+            }
+          );
+        }
+      )
         .subscribe(async (status, err) => {
+          console.log("📊 Subscription status changed:", status, err ? { error: err } : "");
+          
           if (status === "SUBSCRIBED") {
             console.log(
-              "✅ Realtime subscription active for conversation:",
+              "✅ Realtime subscription ACTIVE for conversation:",
               conversationId
             );
             isSubscriptionActive = true;
@@ -378,12 +401,8 @@ const ConversationView: React.FC<ConversationViewProps> = ({
               fallbackPollingInterval = null;
               console.log("🔄 Stopped fallback polling - subscription active");
             }
-          } else if (
-            status === "CHANNEL_ERROR" ||
-            status === "TIMED_OUT" ||
-            status === "CLOSED"
-          ) {
-            console.error("❌ Realtime subscription error:", status, err);
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("❌ Realtime subscription CHANNEL_ERROR:", err);
             isSubscriptionActive = false;
 
             // Start fallback polling only if subscription fails
@@ -405,20 +424,53 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                 10000
               );
               console.log(
-                `Retrying subscription in ${delay}ms (attempt ${subscriptionRetryCount}/${maxRetries})`
+                `🔄 Retrying subscription in ${delay}ms (attempt ${subscriptionRetryCount}/${maxRetries})`
               );
               setTimeout(() => {
                 setupSubscription();
               }, delay);
             } else {
               console.error(
-                "Max subscription retries reached, using fallback polling"
+                "❌ Max subscription retries reached, using fallback polling"
               );
+            }
+          } else if (status === "TIMED_OUT") {
+            console.error("❌ Realtime subscription TIMED_OUT");
+            isSubscriptionActive = false;
+
+            // Start fallback polling
+            if (!fallbackPollingInterval) {
+              console.log("🔄 Starting fallback polling (5s interval)");
+              fallbackPollingInterval = setInterval(() => {
+                queryClient.invalidateQueries({
+                  queryKey: ["messages", conversationId],
+                });
+              }, 5000);
+            }
+
+            // Retry subscription
+            if (subscriptionRetryCount < maxRetries) {
+              subscriptionRetryCount++;
+              const delay = Math.min(2000 * subscriptionRetryCount, 10000);
+              setTimeout(() => {
+                setupSubscription();
+              }, delay);
+            }
+          } else if (status === "CLOSED") {
+            console.warn("⚠️ Realtime subscription CLOSED");
+            isSubscriptionActive = false;
+            
+            // Try to reconnect
+            if (subscriptionRetryCount < maxRetries) {
+              subscriptionRetryCount++;
+              setTimeout(() => {
+                setupSubscription();
+              }, 1000);
             }
           }
         });
 
-      channelRef.current = channel;
+    channelRef.current = channel;
     };
 
     setupSubscription();
@@ -444,7 +496,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
         Object.keys(state).forEach((presenceKey) => {
           const userPresence = state[presenceKey] as any[];
-          if (userPresence && userPresence.length > 0) {
+            if (userPresence && userPresence.length > 0) {
             userPresence.forEach((presence) => {
               // Extract user ID from presence key (format: userId::sessionId)
               // Use '::' separator to handle UUIDs correctly
@@ -518,11 +570,11 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     // Only update if we're currently showing typing
     if (isTypingRef.current) {
       isTypingRef.current = false;
-      presenceChannelRef.current.track({
-        typing: false,
-        username: currentUsername,
+    presenceChannelRef.current.track({
+      typing: false,
+      username: currentUsername,
         userId: currentUserId, // Include userId for easier filtering
-      });
+    });
     }
   }, [currentUsername]);
 
@@ -575,17 +627,16 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
     try {
       await sendMessage.mutateAsync(content);
-      // Force refetch after sending to ensure message appears (fallback if realtime fails)
-      setTimeout(() => {
-        queryClient.invalidateQueries({
-          queryKey: ["messages", conversationId],
-        });
-      }, 1000);
+      // The optimistic update and onSuccess handler handle the sender's view
+      // For the recipient, realtime subscription handles it - no backend polling needed
     } catch {
       setMessage(content); // Restore message on failure
     }
 
+    // Keep focus on input after sending
+    setTimeout(() => {
     inputRef.current?.focus();
+    }, 0);
   };
 
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
