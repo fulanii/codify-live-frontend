@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (data: UserLogin) => Promise<void>;
   register: (data: UserRegistration) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refetchUser: () => void;
 }
 
@@ -73,6 +74,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [queryClient]);
 
+  const deleteAccount = useCallback(async () => {
+    try {
+      await authApi.deleteAccount();
+      // Call logout to ensure cookies are cleared on backend
+      try {
+        await authApi.logout();
+      } catch (logoutError) {
+        // Ignore logout errors - account is already deleted
+        console.warn('Logout after account deletion failed:', logoutError);
+      }
+      // Clear tokens and cache
+      clearAccessToken();
+      queryClient.clear();
+      // Redirect will happen via navigation since user is no longer authenticated
+    } catch (error) {
+      // Re-throw error so it can be handled by the UI
+      throw error;
+    }
+  }, [queryClient]);
+
   const value: AuthContextType = {
     user: user ?? null,
     isLoading: !isInitialized || isLoading,
@@ -80,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     logout,
+    deleteAccount,
     refetchUser: () => refetchUser(),
   };
 

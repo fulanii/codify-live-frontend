@@ -18,28 +18,28 @@ import { Trash2, User, Calendar, Mail, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const SettingsTab: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, deleteAccount } = useAuth();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      // The actual delete endpoint would go here
-      // For now, we'll just logout
+      await deleteAccount();
       toast({
-        title: 'Account deletion requested',
-        description: 'This feature is not yet implemented by the backend.',
-        variant: 'destructive',
+        title: 'Account deleted',
+        description: 'Your account has been permanently deleted.',
       });
-      // await logout();
+      // Force full page refresh to ensure all state is cleared
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete account',
+        description: 'An error occurred while attempting to delete your account.',
         variant: 'destructive',
       });
-    } finally {
       setIsDeleting(false);
     }
   };

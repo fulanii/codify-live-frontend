@@ -43,6 +43,8 @@ export const getAccessToken = (): string | null => {
 export const clearAccessToken = () => {
   accessToken = null;
   localStorage.removeItem("access_token");
+  // Also clear sessionStorage if token was stored there
+  sessionStorage.removeItem("access_token");
 };
 
 // Request deduplication
@@ -227,6 +229,9 @@ export const authApi = {
   getMe: () => apiFetch<MeResponse>("/auth/me"),
 
   refreshToken: refreshAccessToken,
+
+  deleteAccount: () =>
+    apiFetch<{ success: boolean }>("/auth/delete", { method: "DELETE" }, true),
 };
 
 // Friends API
