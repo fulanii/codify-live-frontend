@@ -84,7 +84,7 @@ const RegisterPage: React.FC = () => {
       await register({ email: email.trim(), username: username.trim(), password });
       toast({
         title: 'Account created!',
-        description: 'You can now sign in with your credentials.',
+        description: 'Verify your email to sign in.',
       });
       navigate('/login', { replace: true });
     } catch (error) {
