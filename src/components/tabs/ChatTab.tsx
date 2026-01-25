@@ -251,229 +251,50 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     }
   }, [messages, conversationId, currentUserId, checkForNewMessages]);
 
-  // Set up Supabase realtime subscription for messages
+  // Realtime new-message delivery (no backend polling):
+  // We broadcast the confirmed message over Supabase realtime so recipients see it instantly,
+  // even if DB-change subscriptions aren’t enabled in production.
   useEffect(() => {
     if (!conversationId) return;
 
-    console.log("🔌 Setting up realtime subscription for conversation:", conversationId);
+    const channel = supabase.channel(`messages:${conversationId}`);
 
-    let subscriptionRetryCount = 0;
-    const maxRetries = 5;
-    let isSubscriptionActive = false;
-    let fallbackPollingInterval: NodeJS.Timeout | null = null;
+    channel
+      .on("broadcast", { event: "new_message" }, ({ payload }) => {
+        const p = payload as {
+          conversation_id: string;
+          id: string;
+          sender_id: string;
+          sender_username?: string;
+          content: string;
+          created_at: string;
+        };
 
-    const setupSubscription = async () => {
-      // Clean up existing channel if any
-      if (channelRef.current) {
-        console.log("🧹 Cleaning up existing channel");
-        try {
-          await supabase.removeChannel(channelRef.current);
-        } catch (error) {
-          console.warn("Error removing channel:", error);
-        }
-      }
+        if (!p?.id || p.conversation_id !== conversationId) return;
 
-      // Use stable channel name with unique identifier to avoid conflicts
-      const channelName = `messages:${conversationId}:${currentUserId}`;
-      console.log("📡 Creating channel:", channelName);
+        // Sender already sees optimistic + server-confirmed update
+        if (p.sender_id === currentUserId) return;
 
-    const channel = supabase
-        .channel(channelName, {
-          config: {
-            broadcast: { self: true },
-            presence: { key: currentUserId },
-          },
-        })
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-            console.log("📨 Realtime event received:", {
-              eventType: payload.eventType,
-              new: payload.new,
-              old: payload.old,
-              table: payload.table,
-              schema: payload.schema,
-            });
-          const newMessage = payload.new;
+        const messageData: MessageData = {
+          id: p.id,
+          sender_id: p.sender_id,
+          sender_username: p.sender_username || "Unknown",
+          content: p.content,
+          created_at: p.created_at,
+        };
 
-            if (!newMessage || !newMessage.id) {
-              console.error("❌ Invalid message payload:", payload);
-              return;
-            }
-
-            console.log("✅ Processing new message:", {
-              id: newMessage.id,
-              sender_id: newMessage.sender_id,
-              content: newMessage.content?.substring(0, 50),
-            });
-
-            // If this message is from the current user, mark it as sent to prevent notification sound
-            if (newMessage.sender_id === currentUserId) {
-              markMessageAsSent(newMessage.id);
-            }
-
-            // Update the messages cache immediately
-          queryClient.setQueryData(
-            ["messages", conversationId],
-            (old: { messages: MessageData[] } | undefined) => {
-                if (!old) {
-                  // If no old data, create new structure
-                  const messageData: MessageData = {
-                    id: newMessage.id,
-                    sender_id: newMessage.sender_id,
-                    sender_username: newMessage.sender_username || "Unknown",
-                    content: newMessage.content,
-                    created_at: newMessage.created_at,
-                  };
-                  console.log("📝 Created new messages array with first message");
-                  return { messages: [messageData] };
-                }
-
-              // Check if message already exists (avoid duplicates)
-              const exists = old.messages.some(
-                (msg) => msg.id === newMessage.id
-              );
-                if (exists) {
-                  console.log(
-                    "⚠️ Message already exists, skipping:",
-                    newMessage.id
-                  );
-                  return old;
-                }
-
-              const messageData: MessageData = {
-                id: newMessage.id,
-                sender_id: newMessage.sender_id,
-                sender_username: newMessage.sender_username || "Unknown",
-                content: newMessage.content,
-                created_at: newMessage.created_at,
-              };
-
-                // If this is a message from the current user, replace the optimistic message instead of adding
-                if (newMessage.sender_id === currentUserId) {
-                  // Find and replace the optimistic message (temp-*) with the same content
-                  const optimisticIndex = old.messages.findIndex(
-                    (msg) =>
-                      msg.id.startsWith("temp-") &&
-                      msg.content === newMessage.content
-                  );
-
-                  if (optimisticIndex !== -1) {
-                    // Replace the optimistic message
-                    const newMessages = [...old.messages];
-                    newMessages[optimisticIndex] = messageData;
-                    console.log("✅ Replaced optimistic message with real message");
-                    return {
-                      messages: newMessages,
-                    };
-                  }
-                }
-
-                // Otherwise, just add the new message
-                console.log("✅ Added new message to cache (total:", old.messages.length + 1, ")");
-              return {
-                messages: [...old.messages, messageData],
-              };
-            }
-          );
-        }
-      )
-        .subscribe(async (status, err) => {
-          console.log("📊 Subscription status changed:", status, err ? { error: err } : "");
-          
-          if (status === "SUBSCRIBED") {
-            console.log(
-              "✅ Realtime subscription ACTIVE for conversation:",
-              conversationId
-            );
-            isSubscriptionActive = true;
-            subscriptionRetryCount = 0; // Reset retry count on success
-
-            // Clear any fallback polling if subscription is active
-            if (fallbackPollingInterval) {
-              clearInterval(fallbackPollingInterval);
-              fallbackPollingInterval = null;
-              console.log("🔄 Stopped fallback polling - subscription active");
-            }
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("❌ Realtime subscription CHANNEL_ERROR:", err);
-            isSubscriptionActive = false;
-
-            // Start fallback polling only if subscription fails
-            if (!fallbackPollingInterval) {
-              console.log("🔄 Starting fallback polling (5s interval)");
-              fallbackPollingInterval = setInterval(() => {
-                console.log("🔄 Fallback: Refetching messages");
-                queryClient.invalidateQueries({
-                  queryKey: ["messages", conversationId],
-                });
-              }, 5000); // Poll every 5 seconds as fallback
-            }
-
-            // Try to resubscribe with exponential backoff
-            if (subscriptionRetryCount < maxRetries) {
-              subscriptionRetryCount++;
-              const delay = Math.min(
-                1000 * Math.pow(2, subscriptionRetryCount),
-                10000
-              );
-              console.log(
-                `🔄 Retrying subscription in ${delay}ms (attempt ${subscriptionRetryCount}/${maxRetries})`
-              );
-              setTimeout(() => {
-                setupSubscription();
-              }, delay);
-            } else {
-              console.error(
-                "❌ Max subscription retries reached, using fallback polling"
-              );
-            }
-          } else if (status === "TIMED_OUT") {
-            console.error("❌ Realtime subscription TIMED_OUT");
-            isSubscriptionActive = false;
-
-            // Start fallback polling
-            if (!fallbackPollingInterval) {
-              console.log("🔄 Starting fallback polling (5s interval)");
-              fallbackPollingInterval = setInterval(() => {
-                queryClient.invalidateQueries({
-                  queryKey: ["messages", conversationId],
-                });
-              }, 5000);
-            }
-
-            // Retry subscription
-            if (subscriptionRetryCount < maxRetries) {
-              subscriptionRetryCount++;
-              const delay = Math.min(2000 * subscriptionRetryCount, 10000);
-              setTimeout(() => {
-                setupSubscription();
-              }, delay);
-            }
-          } else if (status === "CLOSED") {
-            console.warn("⚠️ Realtime subscription CLOSED");
-            isSubscriptionActive = false;
-            
-            // Try to reconnect
-            if (subscriptionRetryCount < maxRetries) {
-              subscriptionRetryCount++;
-              setTimeout(() => {
-                setupSubscription();
-              }, 1000);
-            }
+        queryClient.setQueryData(
+          ["messages", conversationId],
+          (old: { messages: MessageData[] } | undefined) => {
+            const existing = old?.messages ?? [];
+            if (existing.some((m) => m.id === messageData.id)) return old;
+            return { messages: [...existing, messageData] };
           }
-        });
+        );
+      })
+      .subscribe();
 
     channelRef.current = channel;
-    };
-
-    setupSubscription();
 
     // Set up Presence for typing indicators
     // Use unique key per device to support multiple devices per user
@@ -549,11 +370,6 @@ const ConversationView: React.FC<ConversationViewProps> = ({
         supabase.removeChannel(presenceChannelRef.current);
         presenceChannelRef.current = null;
       }
-      // Cleanup fallback polling
-      if (fallbackPollingInterval) {
-        clearInterval(fallbackPollingInterval);
-        fallbackPollingInterval = null;
-      }
     };
   }, [conversationId, currentUserId, currentUsername, queryClient]);
 
@@ -626,16 +442,29 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     setMessage("");
 
     try {
-      await sendMessage.mutateAsync(content);
-      // The optimistic update and onSuccess handler handle the sender's view
-      // For the recipient, realtime subscription handles it - no backend polling needed
+      const res = await sendMessage.mutateAsync(content);
+      // Broadcast confirmed message to recipients (no backend polling).
+      res?.response_data?.forEach((m) => {
+        channelRef.current?.send({
+          type: "broadcast",
+          event: "new_message",
+          payload: {
+            conversation_id: m.conversation_id,
+            id: m.id,
+            sender_id: m.sender_id,
+            sender_username: currentUsername || "Unknown",
+            content: m.content,
+            created_at: m.created_at,
+          },
+        });
+      });
     } catch {
       setMessage(content); // Restore message on failure
     }
 
     // Keep focus on input after sending
     setTimeout(() => {
-    inputRef.current?.focus();
+      inputRef.current?.focus();
     }, 0);
   };
 
@@ -757,7 +586,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             onBlur={handleBlur}
             placeholder="Type a message..."
             className="flex-1"
-            disabled={sendMessage.isPending || !isFriend}
+            disabled={!isFriend}
           />
           <Button
             type="submit"
