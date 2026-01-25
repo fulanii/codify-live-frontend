@@ -83,7 +83,7 @@ const ChatTab: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       <ConversationList
         conversations={conversations}
         isLoading={isLoadingConversations}
@@ -131,12 +131,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
   currentUserId,
 }) => {
   return (
-    <div className="flex w-full flex-col border-r border-border bg-card md:w-80">
+    <div className="flex h-full w-full flex-col overflow-hidden border-r border-border bg-card md:w-80">
       <div className="flex h-16 items-center border-b border-border px-4">
         <h2 className="text-lg font-semibold">Messages</h2>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -508,7 +508,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   };
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-4">
         {isMobile && onBack && (
@@ -525,7 +525,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 min-h-0 p-4">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
