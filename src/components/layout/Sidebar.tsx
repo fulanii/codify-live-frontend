@@ -14,6 +14,7 @@ import {
 import { UserAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { clearAccessToken } from "@/lib/api";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
@@ -173,8 +174,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   };
 
   const handleLogout = async () => {
-    await logout();
-    window.location.href = "/login";
+    // Clear local state immediately (don't wait for API)
+    clearAccessToken();
+    
+    // Call logout API in background (don't wait for it)
+    logout().catch(() => {
+      // Ignore errors - we're already clearing local state
+    });
+    
+    // Immediately redirect to home page with full refresh
+    window.location.href = "/";
   };
 
   if (isMobile) {

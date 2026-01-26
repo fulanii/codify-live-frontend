@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { clearAccessToken } from "@/lib/api";
 
 export default function Landing() {
   const { isAuthenticated, logout } = useAuth();
@@ -102,7 +103,16 @@ export default function Landing() {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  void logout();
+                  // Clear local state immediately (don't wait for API)
+                  clearAccessToken();
+                  
+                  // Call logout API in background (don't wait for it)
+                  logout().catch(() => {
+                    // Ignore errors - we're already clearing local state
+                  });
+                  
+                  // Immediately redirect to home page with full refresh
+                  window.location.href = "/";
                 }}
                 data-testid="button-logout"
               >

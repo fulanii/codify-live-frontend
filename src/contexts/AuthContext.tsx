@@ -68,9 +68,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
+    } catch (error) {
+      // Even if logout API call fails, clear local state
+      console.error('Logout API call failed:', error);
     } finally {
+      // Clear token first
       clearAccessToken();
+      // Clear all queries to remove cached user data
       queryClient.clear();
+      // Cancel any pending queries
+      queryClient.cancelQueries();
     }
   }, [queryClient]);
 
