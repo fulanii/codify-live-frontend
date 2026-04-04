@@ -10,6 +10,8 @@ import Landing from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import NotFound from "./pages/NotFound";
+import UnderConstructionPage from "@/pages/UnderConstructionPage";
+import { MAINTENANCE_MODE } from "@/config/maintenance";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,17 +29,23 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/dashboard" element={<DashboardLayout />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </ErrorBoundary>
-        </AuthProvider>
+        {MAINTENANCE_MODE ? (
+          <Routes>
+            <Route path="*" element={<UnderConstructionPage />} />
+          </Routes>
+        ) : (
+          <AuthProvider>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/dashboard" element={<DashboardLayout />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ErrorBoundary>
+          </AuthProvider>
+        )}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
