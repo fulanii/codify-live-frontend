@@ -1,0 +1,7 @@
+# cant commit unless all these pass
+# set -e: abort on the first failure, so a later passing step
+# cannot mask an earlier one and let the commit through
+set -e
+
+npx lint-staged
+npm run typecheck
