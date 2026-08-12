@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
-import { authService, refreshSession, setAccessToken } from '../services/api';
+import { authService, hasValidAccessToken, refreshSession, setAccessToken } from '../services/api';
 import type { LoginRequest, User } from '../types/auth.types';
 import { AuthContext, type AuthContextValue } from './authContext';
 
@@ -14,16 +14,19 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   /**
-   * On mount the access token is always gone (it lives in memory). If the
-   * httpOnly refresh cookie is still valid we can silently restore the session.
+   * Restore the session on mount.
+   *
+   * A stored access token that has not expired is reused as-is, so a reload
+   * costs nothing on the auth server. Only when it is missing or expired do we
+   * spend the refresh cookie on a new one.
    */
   useEffect(() => {
     let cancelled = false;
 
     const restore = async (): Promise<void> => {
-      const refreshed = await refreshSession();
+      const authenticated = hasValidAccessToken() || (await refreshSession());
 
-      if (refreshed) {
+      if (authenticated) {
         try {
           const current = await authService.me();
           if (!cancelled) {
