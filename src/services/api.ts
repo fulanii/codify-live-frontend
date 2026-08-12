@@ -8,21 +8,90 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const ACCESS_TOKEN_KEY = 'codifylive.access_token';
+
 /**
- * The access token lives in memory only, never in localStorage.
- *
- * A token in localStorage is readable by any script on the page, so a single XSS
- * bug leaks it. Holding it in a module variable means it dies with the tab, and
- * the httpOnly refresh cookie is what restores the session on reload.
+ * Treat a token as expired slightly early, so one that dies in flight does not
+ * come back as a 401 we then have to recover from.
  */
-let accessToken: string | null = null;
+const EXPIRY_SKEW_SECONDS = 10;
+
+interface AccessTokenClaims {
+  exp?: number;
+}
+
+function readStoredToken(): string | null {
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The access token is persisted so a page reload reuses it instead of spending a
+ * refresh. Refreshing rotates the server's refresh token — a new row inserted
+ * and the old one revoked — so refreshing on every load would churn that table
+ * for no reason.
+ */
+let accessToken: string | null = readStoredToken();
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+
+  try {
+    if (token === null) {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+    } else {
+      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    }
+  } catch {
+    // Storage can be unavailable (private mode, disabled cookies). The
+    // in-memory copy still works for the life of the tab.
+  }
 }
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+/**
+ * Read `exp` out of the JWT payload.
+ *
+ * The signature is not checked here — that is the server's job, and it will
+ * still reject anything forged. This only decides whether it is worth sending.
+ */
+function getExpiry(token: string): number | null {
+  const payload = token.split('.')[1];
+
+  if (payload === undefined) {
+    return null;
+  }
+
+  try {
+    const claims = JSON.parse(
+      atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    ) as AccessTokenClaims;
+
+    return typeof claims.exp === 'number' ? claims.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when a stored token exists and has not reached its `exp`. */
+export function hasValidAccessToken(): boolean {
+  if (accessToken === null) {
+    return false;
+  }
+
+  const expiresAt = getExpiry(accessToken);
+
+  if (expiresAt === null) {
+    return false;
+  }
+
+  return Date.now() / 1000 < expiresAt - EXPIRY_SKEW_SECONDS;
 }
 
 /** Thrown for any non-2xx response, carrying the HTTP status for callers. */
@@ -81,9 +150,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   };
 
+  // A token we already know is expired is replaced up front, rather than spending
+  // a round trip to be told 401.
+  if (accessToken !== null && !hasValidAccessToken()) {
+    await refreshSession();
+  }
+
   let response = await send();
 
-  // An expired access token is recoverable: refresh once, then retry.
+  // Anything the expiry check missed — a revoked token, a rotated signing key —
+  // is still recoverable: refresh once, then retry.
   if (response.status === 401 && !skipRetry) {
     const refreshed = await refreshSession();
 
