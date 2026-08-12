@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../services/api';
+import { Icon } from './Icon';
 
 export function LoginForm(): JSX.Element {
   const { login, isLoggingIn } = useAuth();
@@ -10,6 +11,7 @@ export function LoginForm(): JSX.Element {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -42,7 +44,7 @@ export function LoginForm(): JSX.Element {
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="rounded-lg border border-surface-border bg-surface-base px-4 py-3 text-sm text-ink-primary placeholder:text-ink-muted focus:border-brand-500"
+          className="rounded-lg border border-surface-border bg-surface-base px-4 py-3 text-base text-ink-primary placeholder:text-ink-muted focus:border-brand-500 sm:text-sm"
           placeholder="you@example.com"
         />
       </div>
@@ -51,17 +53,29 @@ export function LoginForm(): JSX.Element {
         <label htmlFor="password" className="text-sm font-medium text-ink-secondary">
           Password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="rounded-lg border border-surface-border bg-surface-base px-4 py-3 text-sm text-ink-primary placeholder:text-ink-muted focus:border-brand-500"
-          placeholder="••••••••"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={isPasswordVisible ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface-base py-3 pl-4 pr-12 text-base text-ink-primary placeholder:text-ink-muted focus:border-brand-500 sm:text-sm"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setIsPasswordVisible((previous) => !previous)}
+            aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+            aria-pressed={isPasswordVisible}
+            aria-controls="password"
+            className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-ink-muted hover:text-ink-primary"
+          >
+            <Icon name={isPasswordVisible ? 'eye-off' : 'eye'} />
+          </button>
+        </div>
       </div>
 
       {error !== null && (

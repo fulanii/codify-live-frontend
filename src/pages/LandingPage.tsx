@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import { Footer } from '../components/Footer';
+import { useAuth } from '../hooks/useAuth';
 
 interface Feature {
   title: string;
@@ -61,15 +62,21 @@ const STATUS_LABELS: Record<Feature['status'], string> = {
 };
 
 export function LandingPage(): JSX.Element {
+  const { user } = useAuth();
+  const isSignedIn = user !== null;
+
+  const ctaTo = isSignedIn ? '/dashboard' : '/auth';
+  const ctaLabel = isSignedIn ? 'Go to dashboard' : 'Sign in';
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <span className="font-mono text-sm font-semibold tracking-tight">CodifyLive</span>
         <Link
-          to="/auth"
+          to={ctaTo}
           className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-secondary transition-colors hover:border-brand-500 hover:text-brand-400"
         >
-          Sign in
+          {ctaLabel}
         </Link>
       </header>
 
@@ -99,10 +106,10 @@ export function LandingPage(): JSX.Element {
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                to="/auth"
+                to={ctaTo}
                 className="rounded-lg bg-brand-500 px-6 py-3 text-sm font-semibold text-surface-base transition-colors hover:bg-brand-400"
               >
-                Get started
+                {isSignedIn ? 'Go to dashboard' : 'Get started'}
               </Link>
               <a
                 href="https://github.com/fulanii/codify-live-backend"
