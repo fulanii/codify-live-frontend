@@ -42,6 +42,7 @@ export function setAccessToken(token: string | null): void {
   try {
     if (token === null) {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
     } else {
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
     }
@@ -76,6 +77,42 @@ function getExpiry(token: string): number | null {
     return typeof claims.exp === 'number' ? claims.exp : null;
   } catch {
     return null;
+  }
+}
+
+const USER_KEY = 'codifylive.user';
+
+/**
+ * The last known profile, so the first paint after a reload already knows
+ * whether someone is signed in instead of waiting on a round trip.
+ *
+ * Only returned when a token is also stored — without one the session is
+ * definitely over and the cached profile is meaningless. It is a display hint
+ * that gets replaced by whatever `/auth/me` says; every protected request is
+ * still authorised by the server.
+ */
+export function getStoredUser(): User | null {
+  if (accessToken === null) {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw === null ? null : (JSON.parse(raw) as User);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredUser(user: User | null): void {
+  try {
+    if (user === null) {
+      localStorage.removeItem(USER_KEY);
+    } else {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+  } catch {
+    // Storage unavailable; the in-memory state in AuthProvider still works.
   }
 }
 
@@ -189,12 +226,36 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
  */
 let refreshInFlight: Promise<boolean> | null = null;
 
+type SessionExpiredHandler = () => void;
+
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+
+// Lets AuthProvider hear about a session ending anywhere — a background fetch,
+// a retry after a 401 — not just on the paths it drives itself.
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null): void {
+  sessionExpiredHandler = handler;
+}
+
 export function refreshSession(): Promise<boolean> {
   if (refreshInFlight) {
     return refreshInFlight;
   }
 
+  // A refresh with no token behind it is a first sign-in, not an expiry. Only
+  // the failure of an established session is worth telling the user about.
+  const hadSession = accessToken !== null;
+
   refreshInFlight = (async (): Promise<boolean> => {
+    const fail = (): boolean => {
+      setAccessToken(null);
+
+      if (hadSession) {
+        sessionExpiredHandler?.();
+      }
+
+      return false;
+    };
+
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
@@ -202,16 +263,14 @@ export function refreshSession(): Promise<boolean> {
       });
 
       if (!response.ok) {
-        setAccessToken(null);
-        return false;
+        return fail();
       }
 
       const data = (await response.json()) as RefreshResponse;
       setAccessToken(data.access_token);
       return true;
     } catch {
-      setAccessToken(null);
-      return false;
+      return fail();
     } finally {
       refreshInFlight = null;
     }
@@ -240,6 +299,6 @@ export const authService = {
    * so it can set the httpOnly refresh cookie on its own origin.
    */
   startGoogleLogin: (): void => {
-    window.location.href = `${API_URL}/auth/google/start`;
+    window.location.href = `${API_URL}/auth/login/google`;
   },
 };
