@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/api';
 
 export function AuthPage(): JSX.Element {
-  const { user, isBootstrapping, isLoggingIn } = useAuth();
+  const { user, isBootstrapping, isLoggingIn, sessionExpired } = useAuth();
 
   if (user !== null) {
     return <Navigate to="/dashboard" replace />;
@@ -24,6 +24,15 @@ export function AuthPage(): JSX.Element {
         <div className="w-full max-w-sm animate-fade-up">
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
           <p className="mt-2 text-sm text-ink-muted">Sign in to continue to CodifyLive.</p>
+
+          {sessionExpired && (
+            <p
+              role="status"
+              className="mt-6 rounded-lg border border-accent-400/30 bg-accent-500/10 px-4 py-3 text-sm text-ink-secondary"
+            >
+              Your session expired. Please sign in again.
+            </p>
+          )}
 
           <div className="mt-8">
             <GoogleButton

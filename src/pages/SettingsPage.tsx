@@ -1,12 +1,20 @@
 import { useAuth } from '../hooks/useAuth';
 
+const AUTH_PROVIDER_LABELS: Record<string, string> = {
+  google: 'Google Login',
+  google_password: 'Google & Password Login',
+};
+
 export function SettingsPage(): JSX.Element {
   const { user } = useAuth();
+
+  const signInMethod =
+    user === null ? '—' : (AUTH_PROVIDER_LABELS[user.auth_provider] ?? user.auth_provider);
 
   const accountRows = [
     { label: 'Name', value: user?.name ?? '—' },
     { label: 'Email', value: user?.email ?? '—' },
-    { label: 'Sign-in method', value: user?.auth_provider ?? '—' },
+    { label: 'Sign-in method', value: signInMethod },
     { label: 'Email verified', value: user?.is_verified === true ? 'Yes' : 'No' },
     { label: 'Account status', value: user?.is_active === true ? 'Active' : 'Inactive' },
   ];

@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { DashboardLayout } from './components/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthProvider';
+import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { AuthPage } from './pages/AuthPage';
 import { CallsPage } from './pages/CallsPage';
 import { ChatPage } from './pages/ChatPage';
@@ -31,6 +32,7 @@ function App(): JSX.Element {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
             <Route
               path="/dashboard"
