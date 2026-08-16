@@ -22,7 +22,7 @@ export function AuthPage(): JSX.Element {
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm animate-fade-up">
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Welcome</h1>
           <p className="mt-2 text-sm text-ink-muted">Sign in to continue to CodifyLive.</p>
 
           {sessionExpired && (
@@ -50,7 +50,7 @@ export function AuthPage(): JSX.Element {
           <LoginForm />
 
           <p className="mt-6 text-center text-xs leading-relaxed text-ink-muted">
-            Password sign-in is available for accounts that have set one. New accounts are created
+            Password sign-in only available for accounts that have set one. New accounts are created
             through Google.
           </p>
         </div>
