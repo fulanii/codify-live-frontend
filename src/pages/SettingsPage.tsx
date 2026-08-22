@@ -1,3 +1,4 @@
+import { SetPasswordForm } from '../components/SetPasswordForm';
 import { useAuth } from '../hooks/useAuth';
 
 const AUTH_PROVIDER_LABELS: Record<string, string> = {
@@ -39,12 +40,15 @@ export function SettingsPage(): JSX.Element {
       <section className="mt-10">
         <h2 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Password</h2>
 
-        <div className="mt-4 rounded-xl border border-dashed border-surface-border bg-surface-raised px-5 py-6">
-          <p className="text-sm font-medium text-ink-primary">Not built yet</p>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-ink-muted">
-            Setting a password will let you sign in without Google, so the account is not tied to a
+        <div className="mt-4 rounded-xl border border-surface-border bg-surface-raised px-5 py-6">
+          <p className="mx-auto max-w-lg text-center text-sm leading-relaxed text-ink-muted">
+            Setting a password lets you sign in without Google, so the account is not tied to a
             single identity provider.
           </p>
+
+          <div className="mt-6">
+            <SetPasswordForm />
+          </div>
         </div>
       </section>
     </div>

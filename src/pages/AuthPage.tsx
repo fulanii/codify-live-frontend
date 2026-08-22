@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { GoogleButton } from '../components/GoogleButton';
@@ -7,6 +8,7 @@ import { authService } from '../services/api';
 
 export function AuthPage(): JSX.Element {
   const { user, isBootstrapping, isLoggingIn, sessionExpired } = useAuth();
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
 
   if (user !== null) {
     return <Navigate to="/dashboard" replace />;
@@ -47,7 +49,17 @@ export function AuthPage(): JSX.Element {
             <span className="h-px flex-1 bg-surface-border" />
           </div>
 
-          <LoginForm />
+          {showPasswordForm ? (
+            <LoginForm />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPasswordForm(true)}
+              className="w-full rounded-lg border border-surface-border px-4 py-2.5 text-sm text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink-primary"
+            >
+              Sign in with password
+            </button>
+          )}
 
           <p className="mt-6 text-center text-xs leading-relaxed text-ink-muted">
             Password sign-in only available for accounts that have set one. New accounts are created
