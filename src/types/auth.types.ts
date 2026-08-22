@@ -20,6 +20,11 @@ export interface RefreshResponse {
   access_token: string;
 }
 
+export interface SetPasswordRequest {
+  password: string;
+  confirm_password: string;
+}
+
 /** A single entry from FastAPI's 422 validation error list. */
 export interface ValidationErrorItem {
   type: string;
