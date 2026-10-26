@@ -11,6 +11,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Home', icon: 'home', end: true },
+  { to: '/dashboard/friends', label: 'Friends', icon: 'friends' },
   { to: '/dashboard/chat', label: 'Chat', icon: 'chat' },
   { to: '/dashboard/calls', label: 'Calls', icon: 'call' },
   { to: '/dashboard/editor', label: 'Editor', icon: 'code' },

@@ -10,6 +10,7 @@ import { CallsPage } from './pages/CallsPage';
 import { ChatPage } from './pages/ChatPage';
 import { DashboardHomePage } from './pages/DashboardHomePage';
 import { EditorPage } from './pages/EditorPage';
+import { FriendsPage } from './pages/FriendsPage';
 import { LandingPage } from './pages/LandingPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -43,6 +44,7 @@ function App(): JSX.Element {
               }
             >
               <Route index element={<DashboardHomePage />} />
+              <Route path="friends" element={<FriendsPage />} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="calls" element={<CallsPage />} />
               <Route path="editor" element={<EditorPage />} />

@@ -42,7 +42,7 @@ export function DashboardLayout(): JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-dvh overflow-hidden">
       {isMobileOpen && (
         <button
           type="button"
@@ -61,8 +61,8 @@ export function DashboardLayout(): JSX.Element {
         userName={user?.name ?? ''}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-3 border-b border-surface-border px-4 lg:hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-surface-border px-4 lg:hidden">
           <button
             type="button"
             onClick={() => setIsMobileOpen(true)}
@@ -75,7 +75,7 @@ export function DashboardLayout(): JSX.Element {
           <span className="font-mono text-sm font-semibold tracking-tight">CodifyLive</span>
         </header>
 
-        <main className="flex-1 px-5 py-8 sm:px-8">
+        <main className="flex-1 overflow-y-auto px-5 py-8 sm:px-8">
           <Outlet />
         </main>
       </div>

@@ -6,6 +6,7 @@ import type {
   SetPasswordRequest,
   User,
 } from '../types/auth.types';
+import type { UserSearchResult } from '../types/friendship.types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -279,6 +280,11 @@ export function refreshSession(): Promise<boolean> {
 
   return refreshInFlight;
 }
+
+export const usersService = {
+  search: (q: string): Promise<UserSearchResult[]> =>
+    request<UserSearchResult[]>(`/users/search?q=${encodeURIComponent(q)}`),
+};
 
 export const authService = {
   login: (payload: LoginRequest): Promise<LoginResponse> =>
