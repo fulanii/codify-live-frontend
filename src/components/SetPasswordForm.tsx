@@ -26,8 +26,8 @@ function validate(password: string, confirmPassword: string): string | null {
     return 'Password must contain at least one number.';
   }
 
-  if (!/[@$!%*?&]/.test(password)) {
-    return 'Password must contain at least one special character (@$!%*?&).';
+  if (!/[@$!%*?&-]/.test(password)) {
+    return 'Password must contain at least one special character (@$!%*?&-).';
   }
 
   if (password !== confirmPassword) {
@@ -129,7 +129,7 @@ export function SetPasswordForm(): JSX.Element {
 
       <p className="text-xs leading-relaxed text-ink-muted">
         {MIN_LENGTH}–{MAX_LENGTH} characters, with an uppercase letter, a lowercase letter, a
-        number, and one of @$!%*?&.
+        number, and one of: @ $ ! % * ? &amp; -
       </p>
 
       {error !== null && (

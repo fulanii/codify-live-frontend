@@ -24,8 +24,14 @@ export function AuthPage(): JSX.Element {
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm animate-fade-up">
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome</h1>
-          <p className="mt-2 text-sm text-ink-muted">Sign in to continue to CodifyLive.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {showPasswordForm ? 'Welcome back' : 'Get started'}
+          </h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            {showPasswordForm
+              ? 'Sign in with your email and password.'
+              : 'Continue with Google. If this is your first time, it creates your account.'}
+          </p>
 
           {sessionExpired && (
             <p
@@ -57,13 +63,13 @@ export function AuthPage(): JSX.Element {
               onClick={() => setShowPasswordForm(true)}
               className="w-full rounded-lg border border-surface-border px-4 py-2.5 text-sm text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink-primary"
             >
-              Sign in with password
+              Sign in with a password
             </button>
           )}
 
           <p className="mt-6 text-center text-xs leading-relaxed text-ink-muted">
-            Password sign-in only available for accounts that have set one. New accounts are created
-            through Google.
+            Password sign-in is for existing accounts that have set a password in Settings. Every
+            new account starts with Google.
           </p>
         </div>
       </main>
