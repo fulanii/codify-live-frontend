@@ -1,4 +1,5 @@
 import { SetPasswordForm } from '../components/SetPasswordForm';
+import { SetUsernameForm } from '../components/SetUsernameForm';
 import { useAuth } from '../hooks/useAuth';
 
 const AUTH_PROVIDER_LABELS: Record<string, string> = {
@@ -13,6 +14,7 @@ export function SettingsPage(): JSX.Element {
     user === null ? '—' : (AUTH_PROVIDER_LABELS[user.auth_provider] ?? user.auth_provider);
 
   const accountRows = [
+    { label: 'Username', value: user?.username ?? 'Not set' },
     { label: 'Name', value: user?.name ?? '—' },
     { label: 'Email', value: user?.email ?? '—' },
     { label: 'Sign-in method', value: signInMethod },
@@ -35,6 +37,21 @@ export function SettingsPage(): JSX.Element {
             </div>
           ))}
         </dl>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Username</h2>
+
+        <div className="mt-4 rounded-xl border border-surface-border bg-surface-raised px-5 py-6">
+          <p className="mx-auto max-w-lg text-center text-sm leading-relaxed text-ink-muted">
+            Your username is what other people search for when they want to add you as a friend.
+            Accounts created through Google start without one.
+          </p>
+
+          <div className="mt-6">
+            <SetUsernameForm />
+          </div>
+        </div>
       </section>
 
       <section className="mt-10">

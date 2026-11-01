@@ -4,6 +4,7 @@ import type {
   LoginResponse,
   RefreshResponse,
   SetPasswordRequest,
+  SetUsernameRequest,
   User,
 } from '../types/auth.types';
 import type {
@@ -315,6 +316,9 @@ export const authService = {
 
   setPassword: (payload: SetPasswordRequest): Promise<void> =>
     request<void>('/auth/set-password', { method: 'POST', body: payload }),
+
+  setUsername: (payload: SetUsernameRequest): Promise<User> =>
+    request<User>('/auth/set-username', { method: 'POST', body: payload }),
 
   /**
    * Full-page redirect into the backend's Google authorization-code flow.

@@ -130,6 +130,11 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     }
   }, []);
 
+  const updateUser = useCallback((updated: User): void => {
+    setStoredUser(updated);
+    setUser(updated);
+  }, []);
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await authService.logout();
@@ -152,6 +157,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       login,
       logout,
       completeGoogleLogin,
+      updateUser,
     }),
     [
       user,
@@ -161,6 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       login,
       logout,
       completeGoogleLogin,
+      updateUser,
     ]
   );
 
