@@ -83,11 +83,6 @@ export function LandingPage(): JSX.Element {
       <main className="flex-1">
         <section className="mx-auto max-w-5xl px-6 pb-20 pt-16 sm:pt-24">
           <div className="max-w-3xl animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-surface-border px-3 py-1 text-xs text-ink-secondary">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-              Under active development
-            </span>
-
             <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
               Chat, call, and code
               <span className="block text-brand-400">together in the browser.</span>
