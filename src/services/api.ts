@@ -6,7 +6,11 @@ import type {
   SetPasswordRequest,
   User,
 } from '../types/auth.types';
-import type { UserSearchResult } from '../types/friendship.types';
+import type {
+  FriendRequest,
+  FriendRequestResponse,
+  UserSearchResult,
+} from '../types/friendship.types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -284,6 +288,17 @@ export function refreshSession(): Promise<boolean> {
 export const usersService = {
   search: (q: string): Promise<UserSearchResult[]> =>
     request<UserSearchResult[]>(`/users/search?q=${encodeURIComponent(q)}`),
+};
+
+export const friendshipService = {
+  /** The backend takes the receiver as a query parameter, not a body. */
+  sendRequest: (receiverId: string): Promise<FriendRequestResponse> =>
+    request<FriendRequestResponse>(
+      `/friend-request?receiver_id=${encodeURIComponent(receiverId)}`,
+      { method: 'POST' }
+    ),
+
+  listRequests: (): Promise<FriendRequest[]> => request<FriendRequest[]>('/friend-request'),
 };
 
 export const authService = {

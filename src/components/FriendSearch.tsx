@@ -1,12 +1,75 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import { ApiError, usersService } from '../services/api';
+import { ApiError, friendshipService, usersService } from '../services/api';
+import type { UserSearchResult } from '../types/friendship.types';
 import { Icon } from './Icon';
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 300;
+
+interface SearchResultRowProps {
+  user: UserSearchResult;
+}
+
+// Each row owns its own mutation so sending one request leaves the other rows
+// untouched, and a 409 only marks the row it belongs to.
+function SearchResultRow({ user }: SearchResultRowProps): JSX.Element {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () => friendshipService.sendRequest(user.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['friend-requests'] }),
+  });
+
+  const label = mutation.isPending ? 'Sending…' : mutation.isSuccess ? 'Requested' : 'Add friend';
+
+  const errorMessage =
+    mutation.error === null
+      ? null
+      : mutation.error instanceof ApiError
+        ? mutation.error.message
+        : 'Could not reach the server.';
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-overlay text-xs font-semibold uppercase text-ink-secondary">
+        {user.username.slice(0, 2)}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm text-ink-primary">{user.username}</span>
+
+      <button
+        type="button"
+        onClick={() => mutation.mutate()}
+        disabled={mutation.isPending || mutation.isSuccess}
+        className="shrink-0 rounded-lg border border-surface-border px-3 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-brand-500 hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-surface-border disabled:hover:text-ink-secondary"
+      >
+        {label}
+      </button>
+
+      {errorMessage !== null && (
+        <p
+          role="alert"
+          className="flex w-full items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-300"
+        >
+          <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-red-400" />
+          {errorMessage}
+        </p>
+      )}
+
+      {mutation.isSuccess && (
+        <p
+          role="status"
+          className="flex w-full items-center gap-2 rounded-lg bg-brand-500/10 px-3 py-2 text-xs leading-relaxed text-brand-300"
+        >
+          <Icon name="check" className="h-3.5 w-3.5 shrink-0 text-brand-400" />
+          Friend request sent to {user.username}.
+        </p>
+      )}
+    </li>
+  );
+}
 
 export function FriendSearch(): JSX.Element {
   const [term, setTerm] = useState('');
@@ -66,24 +129,7 @@ export function FriendSearch(): JSX.Element {
       {results.length > 0 && (
         <ul className="mt-4 divide-y divide-surface-border overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
           {results.map((user) => (
-            <li key={user.id} className="flex items-center gap-3 px-5 py-3.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-overlay text-xs font-semibold uppercase text-ink-secondary">
-                {user.username.slice(0, 2)}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm text-ink-primary">
-                {user.username}
-              </span>
-
-              {/* Disabled until POST /friend-requests exists. */}
-              <button
-                type="button"
-                disabled
-                title="Not available yet"
-                className="shrink-0 rounded-lg border border-surface-border px-3 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-brand-500 hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-surface-border disabled:hover:text-ink-secondary"
-              >
-                Add friend
-              </button>
-            </li>
+            <SearchResultRow key={user.id} user={user} />
           ))}
         </ul>
       )}
