@@ -12,6 +12,8 @@ export interface AuthContextValue {
   login: (payload: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   completeGoogleLogin: () => Promise<boolean>;
+  // Replaces the cached profile after the server returns an updated one.
+  updateUser: (user: User) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

@@ -1,10 +1,15 @@
 export interface User {
   id: string;
+  username: string | null;
   name: string;
   email: string;
   is_verified: boolean;
   is_active: boolean;
   auth_provider: string;
+}
+
+export interface SetUsernameRequest {
+  username: string;
 }
 
 export interface LoginRequest {

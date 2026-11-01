@@ -6,30 +6,9 @@ import { useAuth } from '../hooks/useAuth';
 const API_DOCS_URL = 'https://fulanii.github.io/codify-live-backend/';
 const BACKEND_REPO_URL = 'https://github.com/fulanii/codify-live-backend';
 
-interface SessionFact {
-  title: string;
-  detail: string;
-}
+const STACK = ['FastAPI', 'Postgres', 'SQLAlchemy', 'Alembic', 'JWT', 'Argon2'];
 
-const SESSION_FACTS: SessionFact[] = [
-  {
-    title: 'Your access token is in memory, not a cookie',
-    detail:
-      'It is a JWT that expires in 15 minutes and is verified by signature alone, so authenticating a request costs no database lookup.',
-  },
-  {
-    title: 'Your session lives in an httpOnly cookie',
-    detail:
-      'An opaque random string, stored server-side only as a SHA-256 hash, scoped to /auth. JavaScript cannot read it, and the database never holds anything usable.',
-  },
-  {
-    title: 'Every refresh rotates that cookie',
-    detail:
-      'The old token is revoked and kept, not deleted. Presenting a revoked one means two parties hold it, so every session for that account is terminated.',
-  },
-];
-
-interface AreaStatus {
+interface Area {
   label: string;
   to: string;
   icon: IconName;
@@ -37,186 +16,69 @@ interface AreaStatus {
   ready: boolean;
 }
 
-const AREAS: AreaStatus[] = [
+const AREAS: Area[] = [
   {
     label: 'Friends',
     to: '/dashboard/friends',
     icon: 'friends',
-    note: 'Username search is live, indexed prefix matching',
+    note: 'Search for people and send friend requests.',
     ready: true,
   },
   {
     label: 'Settings',
     to: '/dashboard/settings',
     icon: 'settings',
-    note: 'Add a password to a Google-only account',
+    note: 'Pick a username and set a password.',
     ready: true,
   },
   {
     label: 'Chat',
     to: '/dashboard/chat',
     icon: 'chat',
-    note: 'Next: REST writes, WebSocket delivery',
+    note: 'Message your friends in real time.',
     ready: false,
   },
   {
     label: 'Calls',
     to: '/dashboard/calls',
     icon: 'call',
-    note: 'After chat: WebRTC signaling',
+    note: 'Audio and video calls in the browser.',
     ready: false,
   },
   {
     label: 'Editor',
     to: '/dashboard/editor',
     icon: 'code',
-    note: 'Last: CRDT documents, sandboxed runs',
+    note: 'Write and run code together.',
     ready: false,
   },
 ];
 
-const BUILD_ORDER: string[] = [
-  'Auth and sessions',
-  'Friendships',
-  'Chat over REST',
-  'WebSocket delivery',
-  'Redis fan-out across instances',
-  'Calls, editor, execution',
-];
-
-const CURRENT_PHASE = 1;
-
 export function DashboardHomePage(): JSX.Element {
   const { user } = useAuth();
 
-  const initial = user?.name?.charAt(0).toUpperCase() ?? '?';
+  const firstName = user?.name?.split(' ')[0] ?? 'there';
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <section className="flex items-center gap-4">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-xl font-semibold text-brand-400">
-          {initial}
-        </span>
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">
-            You are signed in, {user?.name}
-          </h1>
-          <p className="mt-1 truncate text-sm text-ink-muted">{user?.email}</p>
-        </div>
-      </section>
+    <div className="mx-auto max-w-3xl">
+      <section className="animate-fade-up overflow-hidden rounded-2xl border border-surface-border bg-gradient-to-br from-surface-raised via-surface-raised to-brand-500/10 p-6 sm:p-8">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">CodifyLive</p>
 
-      <section className="mt-10">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-          What just happened
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary">
-          Signing in is the part of this project that is finished, and it is hand-written rather
-          than handed to a library. Three things are now true of this browser tab:
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Hey {firstName}</h1>
+
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-ink-secondary sm:text-base">
+          This is a backend project. The API does the real work; this UI is here so you can use it.
+          Auth and friendships are done, messaging and calls are next.
         </p>
 
-        <dl className="mt-5 divide-y divide-surface-border overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-          {SESSION_FACTS.map((fact) => (
-            <div key={fact.title} className="px-5 py-4">
-              <dt className="text-sm font-medium text-ink-primary">{fact.title}</dt>
-              <dd className="mt-1 text-sm leading-relaxed text-ink-muted">{fact.detail}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Worth trying: reload this page. The access token dies with the tab, so the app trades the
-          cookie for a new one and restores your profile before the first paint. Open the network
-          tab and you will see it happen once, not on every navigation.
-        </p>
-      </section>
-
-      <section className="mt-12">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-          What works today
-        </h2>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {AREAS.map((area) => (
-            <Link
-              key={area.to}
-              to={area.to}
-              className="group flex items-start gap-3 rounded-xl border border-surface-border bg-surface-raised p-4 transition-colors hover:border-brand-500/50 hover:bg-surface-overlay"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-overlay text-ink-secondary transition-colors group-hover:text-brand-400">
-                <Icon name={area.icon} />
-              </span>
-
-              <span className="min-w-0">
-                <span className="flex items-center gap-2 text-sm font-medium text-ink-primary">
-                  {area.label}
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${
-                      area.ready
-                        ? 'bg-brand-500/15 text-brand-400'
-                        : 'bg-surface-border text-ink-muted'
-                    }`}
-                  >
-                    {area.ready ? 'Live' : 'Empty'}
-                  </span>
-                </span>
-                <span className="mt-1 block text-xs leading-relaxed text-ink-muted">
-                  {area.note}
-                </span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-12">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Build order</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary">
-          Each phase ships complete before the next one starts, so the app is always deployed and
-          working rather than half-built in six places at once.
-        </p>
-
-        <ol className="mt-5 space-y-2">
-          {BUILD_ORDER.map((phase, index) => (
-            <li key={phase} className="flex items-center gap-3 text-sm">
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                  index < CURRENT_PHASE
-                    ? 'bg-brand-500/15 text-brand-400'
-                    : index === CURRENT_PHASE
-                      ? 'bg-accent-500/15 text-accent-400'
-                      : 'bg-surface-raised text-ink-muted'
-                }`}
-              >
-                {index + 1}
-              </span>
-              <span className={index <= CURRENT_PHASE ? 'text-ink-primary' : 'text-ink-muted'}>
-                {phase}
-              </span>
-              {index === CURRENT_PHASE && (
-                <span className="text-xs uppercase tracking-wider text-accent-400">
-                  in progress
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="mt-12 rounded-xl border border-surface-border bg-surface-raised p-5">
-        <h2 className="text-sm font-medium text-ink-primary">Look at it yourself</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Every endpoint is documented from its own docstring, including the failure cases and why
-          each status code is what it is.
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap items-center gap-3">
           <a
             href={API_DOCS_URL}
             target="_blank"
             rel="noreferrer noopener"
-            className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-secondary transition-colors hover:border-brand-500 hover:text-brand-400"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-surface-base transition-colors hover:bg-brand-400"
           >
-            API reference
+            Read the API docs
           </a>
           <a
             href={BACKEND_REPO_URL}
@@ -224,10 +86,57 @@ export function DashboardHomePage(): JSX.Element {
             rel="noreferrer noopener"
             className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-secondary transition-colors hover:border-brand-500 hover:text-brand-400"
           >
-            Backend source
+            Source on GitHub
           </a>
         </div>
+
+        <ul className="mt-7 flex flex-wrap gap-2 border-t border-surface-border pt-5">
+          {STACK.map((item) => (
+            <li
+              key={item}
+              className="rounded-md bg-surface-overlay px-2.5 py-1 font-mono text-xs text-ink-muted"
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
       </section>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {AREAS.map((area) => (
+          <Link
+            key={area.to}
+            to={area.to}
+            className={`group flex items-start gap-3 rounded-xl border bg-surface-raised p-4 transition-all hover:-translate-y-0.5 ${
+              area.ready
+                ? 'border-surface-border hover:border-brand-500/60'
+                : 'border-dashed border-surface-border hover:border-ink-muted'
+            }`}
+          >
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                area.ready
+                  ? 'bg-brand-500/10 text-brand-400'
+                  : 'bg-surface-overlay text-ink-muted group-hover:text-ink-secondary'
+              }`}
+            >
+              <Icon name={area.icon} />
+            </span>
+
+            <span className="min-w-0">
+              <span className="flex items-center gap-2 text-sm font-medium text-ink-primary">
+                {area.label}
+                {!area.ready && (
+                  <span className="rounded-full bg-surface-border px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider text-ink-muted">
+                    Soon
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-ink-muted">{area.note}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

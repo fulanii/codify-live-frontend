@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../hooks/useAuth';
-import { ApiError, friendshipService } from '../services/api';
+import { friendshipService } from '../services/api';
 import type { FriendRequest, FriendRequestStatus } from '../types/friendship.types';
 import { Icon } from './Icon';
 
@@ -74,6 +74,8 @@ export function FriendRequests(): JSX.Element {
     return <p className="text-sm text-ink-muted">Loading requests…</p>;
   }
 
+  // Raw HTTP status text ("Not Found") reads like something the user did wrong.
+  // A failure here is ours, so the copy stays the same whatever the status.
   if (error !== null) {
     return (
       <p
@@ -81,7 +83,7 @@ export function FriendRequests(): JSX.Element {
         className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-300"
       >
         <Icon name="alert" className="h-4 w-4 shrink-0 text-red-400" />
-        {error instanceof ApiError ? error.message : 'Could not load friend requests.'}
+        Could not load friend requests. Try again in a moment.
       </p>
     );
   }
