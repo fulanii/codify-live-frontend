@@ -8,8 +8,10 @@ import type {
   User,
 } from '../types/auth.types';
 import type {
+  Friend,
   FriendRequest,
   FriendRequestResponse,
+  UpdatedFriendRequest,
   UserSearchResult,
 } from '../types/friendship.types';
 
@@ -169,7 +171,7 @@ async function toErrorMessage(response: Response): Promise<string> {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Skip the automatic refresh-and-retry on 401. */
   skipRetry?: boolean;
@@ -300,6 +302,28 @@ export const friendshipService = {
     ),
 
   listRequests: (): Promise<FriendRequest[]> => request<FriendRequest[]>('/friend-request'),
+
+  listFriends: (): Promise<Friend[]> => request<Friend[]>('/friends'),
+
+  /**
+   * The three transitions take no body: the id in the path is all the server
+   * needs, and it decides who is allowed to make each one. Accept and decline
+   * belong to the receiver, cancel to the sender.
+   */
+  acceptRequest: (requestId: string): Promise<UpdatedFriendRequest> =>
+    request<UpdatedFriendRequest>(`/friend-request/${encodeURIComponent(requestId)}/accept`, {
+      method: 'PATCH',
+    }),
+
+  declineRequest: (requestId: string): Promise<UpdatedFriendRequest> =>
+    request<UpdatedFriendRequest>(`/friend-request/${encodeURIComponent(requestId)}/decline`, {
+      method: 'PATCH',
+    }),
+
+  cancelRequest: (requestId: string): Promise<UpdatedFriendRequest> =>
+    request<UpdatedFriendRequest>(`/friend-request/${encodeURIComponent(requestId)}/cancel`, {
+      method: 'PATCH',
+    }),
 };
 
 export const authService = {

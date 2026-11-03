@@ -1,5 +1,6 @@
 import { FriendRequests } from '../components/FriendRequests';
 import { FriendSearch } from '../components/FriendSearch';
+import { FriendsList } from '../components/FriendsList';
 
 export function FriendsPage(): JSX.Element {
   return (
@@ -9,6 +10,13 @@ export function FriendsPage(): JSX.Element {
 
       <section className="mt-8 flex justify-center">
         <FriendSearch />
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-lg font-semibold tracking-tight">Your friends</h2>
+        <div className="mt-4">
+          <FriendsList />
+        </div>
       </section>
 
       <section className="mt-12">
